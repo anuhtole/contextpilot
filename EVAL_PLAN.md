@@ -12,6 +12,74 @@
 - **Next experiment:** high-growth sessions in which the agent reads whole files (g of 4k or more per call), comparing `auto` with `eoq`. Expect about $3–5 per run.
 - **Remaining plan:** the SWE-bench design below is still the path to a full-paper result.
 
+## Next: high-growth real sessions (designed 2026-10-28, not yet run, needs budget approval)
+
+Sizing: `experiments/size_highgrowth.py` → `results/highgrowth_sizing.json`. It replays the pilot's real per-call increments rescaled to the target growth, on the fidelity-checked simulator (7.9% MAE) with the pilot's bias corrected.
+
+**What this experiment can and cannot show.** At Claude Code prices H\* + base ≈ 160k, so `eoq` and `--autocompact 150k` are predicted to cost the same (within 1%, and within 3% even at g = 1.5k). No real-session design on Claude can separate them at n = 5. It *can* show, with real bills:
+1. Near-window compaction (the 1M default) costs 30–40% more than a trigger near H\* once sessions cross H\*.
+2. The economic trigger reaches that optimum with no tuning, matching the best product setting.
+3. Task quality and constraint retention survive 3–4 compactions.
+4. The simulator predicts compacted sessions that cross H\* (a pre-registered prediction, falsifiable).
+The online rule's advantage over a fixed 150k stays a simulation result across prices and windows (Table 1), and the paper states it that way.
+
+**Workload (`bench/build.py --high-growth`).**
+- 24 injected bugs in 8 large stdlib modules (1.4–3k lines each): argparse, configparser, tarfile, pathlib, dataclasses, datetime, http.cookiejar, optparse.
+- Bugs are described by symptom only (a failing call and its wrong output, no line hint), so the agent has to read the code.
+- About 30 follow-up messages: fix requests, then "audit `<module>` end to end and record risky spots in NOTES.md", which forces whole-file reads.
+- Target g ≈ 4k tokens per call. That is close to our real Claude Code sessions (3.6k), so the high growth is realistic, not contrived.
+- Target about 120 calls per session, which puts the uncompacted peak near 500k: about 3x H\* of 123k.
+- Five task orderings (v1H–v5H). Each repetition is one ordering, run under every arm, so the comparisons are paired.
+- Quality uses the same instruments as the pilot: hidden differential probes (fixed /24), constraint rules 1–4 from message 1, and NOTES.md recall.
+- One new probe is a constraint added at message 10 ("never touch `__all__`"). It tests retention of state introduced mid-session, which is what a summary is most likely to drop.
+
+**Arms (n = 5 each, paired by ordering):**
+
+| Arm | Mechanism | Predicted $/run | Compactions |
+|---|---|---|---|
+| auto | CLI default on the 1M window (never fires at 500k) | $6.8 | 0 |
+| eoq | external `/compact` at the online H\* | $4.4 | about 3.5 |
+| 150k | CLI-native `--autocompact 150000` | $4.4 | about 4 |
+| far (optional) | `--autocompact 400000` (3x H\*) | $5.2 | about 1 |
+
+- The `150k` arm also controls for the mechanism: native autocompaction versus our external `/compact`.
+- `far` is the dose-response point that tests linear excess (Corollary 3).
+
+**Pre-registered predictions** (simulator, g = 4k, 120 calls):
+- eoq vs auto: −35% ± 6%.
+- eoq vs 150k: within ±5%.
+- far vs auto: −22% ± 8%.
+- Quality is non-inferior: fixed ≥ 23/24 and recall drops by no more than 1/12.
+
+**Statistics.**
+- Paired differences per ordering, with a bootstrap 95% CI on the % cost difference.
+- An exact sign test. Its minimum one-sided p at n = 5 is 1/32 = 0.031, so all 5 pairs must agree.
+- Simulated SD is about 3% per run against a predicted effect of about 35%, so power is ample if the effect is real.
+- Quality and recall are reported descriptively. n = 5 cannot establish non-inferiority, only detect gross harm.
+
+**Cost and gates.** Sonnet 5.5 list prices, 1-hour cache.
+
+| Stage | Runs | Estimate |
+|---|---|---|
+| 0. Calibration gate: 2 truncated auto runs (40 calls) plus one `--autocompact 150000` smoke test | 3 | $4 |
+| 1. Core: auto + eoq × 5 | 10 | $56 |
+| 2. + 150k × 5 | 5 | $22 |
+| 3. + far × 5 (optional) | 5 | $26 |
+
+- The fidelity error and the uncertainty in g give a ±15% band.
+- Recommended cap: **$95** for stages 0–2, or **$125** with `far`.
+- The minimal version (stages 0–1) costs $65.
+
+**Gate rules.**
+- After stage 0, if measured g < 2.5k, change the workload (bigger audits) before going on. Do not run the full grid on sessions that never cross H\*: that was the pilot's failure.
+- Raise `PER_RUN_CAP_USD` from 3 to 10, and set the ledger cap to the approved total.
+- Wall-clock is about 20–25 min per run. Run three sessions in parallel: about 2.5 hours for stages 0–2.
+
+**Risks.**
+- The agent may grep instead of reading whole files, keeping g low. The calibration gate catches this.
+- Native autocompaction may leave a different σ than `/compact`. It is measured from `compact_metadata`.
+- Anthropic rate limits under parallel runs.
+
 The simulator shows that compacting by break-even is cheaper than window-relative triggers, and that it holds up when conditions change. It cannot show that early compaction **keeps task success intact**. The cheapest schedules compact about 4 times per session, while a 92% trigger compacts about once. This plan tests that with a real agent and real API bills.
 
 ## Research questions
