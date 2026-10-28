@@ -1,0 +1,27 @@
+
+### window 200k  (savings vs fixed 92%; negative = cheaper)
+prices=uncached                                break-even  -38.6%  +hazard  -39.2%  best-fixed  -39.7% (@20k)  opt  -40.9%  compactions 8.1
+prices=cached                                  break-even  -14.8%  +hazard  -16.4%  best-fixed  -17.1% (@30k)  opt  -18.4%  compactions 4.1
+prices=cached (5.5-gen 0.05x read)             break-even   -5.7%  +hazard   -8.9%  best-fixed   -9.3% (@30k)  opt  -11.1%  compactions 2.5
+cached, re-fetch rho=0.0                       break-even  -16.5%  +hazard  -16.8%  best-fixed  -17.6% (@30k)  opt  -18.7%  compactions 4.7
+cached, re-fetch rho=0.3                       break-even   -7.2%  +hazard  -13.2%  best-fixed  -15.1% (@30k)  opt  -17.1%  compactions 2.7
+cached, re-fetch rho=0.5                       break-even   +1.0%  +hazard   -4.0%  best-fixed  -10.5% (@45k)  opt  -10.4%  compactions 1.9
+cached, quality penalty 50k tok/compaction     break-even   -4.8%  +hazard   -5.6%  best-fixed   -6.1% (@60k)  opt   -9.3%  compactions 2.1
+cached, quality penalty 200k tok/compaction    break-even   +0.5%  +hazard   +2.0%  best-fixed   -0.0% (@130k)  opt   -4.2%  compactions 1.2
+cached, quality penalty 500k tok/compaction    break-even   -1.2%  +hazard   +0.5%  best-fixed   -1.2% (@160k)  opt   -4.6%  compactions 1.1
+cached, context-rot 0.05/tok/call              break-even  -23.1%  +hazard  -23.9%  best-fixed  -24.6% (@30k)  opt  -25.9%  compactions 5.4
+
+### window 1000k  (savings vs fixed 92%; negative = cheaper)
+prices=uncached                                break-even  -73.3%  +hazard  -73.7%  best-fixed  -73.9% (@20k)  opt  -74.5%  compactions 8.0
+prices=cached                                  break-even  -47.5%  +hazard  -48.9%  best-fixed  -49.6% (@30k)  opt  -50.4%  compactions 3.9
+prices=cached (5.5-gen 0.05x read)             break-even  -31.5%  +hazard  -34.1%  best-fixed  -34.8% (@30k)  opt  -36.2%  compactions 2.3
+cached, re-fetch rho=0.0                       break-even  -49.2%  +hazard  -49.6%  best-fixed  -50.2% (@30k)  opt  -50.9%  compactions 4.5
+cached, re-fetch rho=0.3                       break-even  -39.0%  +hazard  -43.5%  best-fixed  -45.3% (@30k)  opt  -46.4%  compactions 2.5
+cached, re-fetch rho=0.5                       break-even  -25.4%  +hazard  -32.2%  best-fixed  -38.0% (@45k)  opt  -37.2%  compactions 1.2
+cached, quality penalty 50k tok/compaction     break-even  -39.2%  +hazard  -40.1%  best-fixed  -40.7% (@60k)  opt  -42.7%  compactions 1.9
+cached, quality penalty 200k tok/compaction    break-even  -29.1%  +hazard  -28.2%  best-fixed  -30.2% (@160k)  opt  -33.4%  compactions 1.0
+cached, quality penalty 500k tok/compaction    break-even  -20.0%  +hazard  -17.0%  best-fixed  -21.2% (@250k)  opt  -25.1%  compactions 0.6
+cached, context-rot 0.05/tok/call              break-even  -58.5%  +hazard  -59.2%  best-fixed  -59.7% (@30k)  opt  -60.4%  compactions 5.3
+.venv/bin/python sensitivity.py  917.42s user 7.88s system 98% cpu 15:43.74 total
+
+[exited with code 0]
