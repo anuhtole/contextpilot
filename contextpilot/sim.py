@@ -20,6 +20,8 @@ class Prices:
 UNCACHED = Prices(read=1.0, write=1.0, out=5.0, name="uncached")
 CACHED = Prices(read=0.1, write=1.25, out=5.0, name="cached")
 CACHED_55 = Prices(read=0.05, write=1.25, out=5.0, name="cached (5.5-gen 0.05x read)")
+# Claude Code writes 1-hour cache entries (2x) and Sonnet/Opus 5.5 read cache at 0.05x.
+CLAUDE_CODE = Prices(read=0.05, write=2.0, out=5.0, name="Claude Code (0.05x read, 1h 2x write)")
 
 
 @dataclass(frozen=True)
@@ -61,26 +63,94 @@ def buy_cost(env, h):
     return read_for_summary + write_summary + rewrite_premium + env.penalty
 
 
+def fixed_buy_cost(env, h):
+    """Part of the buy cost that does not scale with the history carried into it.
+
+    The slope b of buy_cost in H only adds a constant b*g per call to the
+    long-run average, so it does not move the optimal compaction interval."""
+    p = env.prices
+    slope = p.read + max(p.write - p.read, 0.0) * env.rho
+    return buy_cost(env, h) - slope * (h - post_history(env, h))
+
+
+def eoq_history(env, g, iters=30):
+    """Closed-form compaction point: H* = s + sqrt(2 g A / hold), solved as a fixed
+    point because the summary size and re-fetch depend on H. Independent of the window."""
+    h = 50_000.0
+    for _ in range(iters):
+        h = post_history(env, h) + np.sqrt(2.0 * g * fixed_buy_cost(env, h) / hold_rate(env))
+    return float(h)
+
+
+def steady_state_rate(env, g, h):
+    """Long-run cost per call (excluding terms independent of the trigger) of always
+    compacting at history h while history grows by g per call."""
+    s = post_history(env, h)
+    n = (h - s) / g
+    if n <= 1:
+        return np.inf
+    return hold_rate(env) * (s + g * (n - 1) / 2) + buy_cost(env, h) / n
+
+
+_GRID = np.geomspace(500, 4e6, 1200)
+
+
+def steady_state_optimum(env, g):
+    """Exact steady-state optimal compaction point for any summary-size model.
+    eoq_history is its square-root approximation when sigma and s are constant."""
+    rates = [steady_state_rate(env, g, h) for h in _GRID]
+    return float(_GRID[int(np.argmin(rates))])
+
+
 def call_cost(env, h, g):
     p = env.prices
     held = env.system + h
     return p.read * held + env.quality * h + p.write * g + p.out * env.out_per_call
 
 
-def run(env, g, policy):
-    """Simulate one session; returns (total cost, number of compactions)."""
+def cold_buy_cost(env, h):
+    """Incremental cost of compacting right after the prompt cache expired.
+
+    Not compacting forces a rewrite of the whole prefix at the write price; compacting
+    reads it once uncached (1.0) for the summary and writes only the short new prefix
+    (system + s). Negative whenever (write - 1)(system + h) > out*sigma + write*(system + s)."""
+    p = env.prices
+    s = post_history(env, h)
+    return ((1.0 - p.write) * (env.system + h) + p.out * sigma(env, h)
+            + p.write * (env.system + s) + env.penalty)
+
+
+def run(env, g, policy, cold=None):
+    """Simulate one session; returns (total cost, number of compactions).
+
+    cold[t] marks calls that follow an idle gap longer than the cache TTL: the
+    prefix must be rewritten at the write price instead of read at the read price."""
     h, cost, n_compact = 0.0, 0.0, 0
     state = policy.reset(env)
     for t, gt in enumerate(g):
+        is_cold = cold is not None and bool(cold[t])
         forced = env.system + h + gt > env.window
-        if h > 0 and (forced or policy.should_compact(env, state, t, h, gt)):
+        wants = h > 0 and (forced or policy.should_compact(env, state, t, h, gt)
+                           or (is_cold and policy.compact_when_cold(env, h)))
+        if wants and is_cold:
+            cost += cold_buy_cost(env, h) + env.prices.write * (env.system + h)
+            h = post_history(env, h)
+            n_compact += 1
+            state = policy.on_compact(env, state)
+            cost += call_cost(env, h, gt) - env.prices.read * (env.system + h)  # prefix already paid
+            h += gt
+            state = policy.observe(env, state, t, h, gt)
+            continue
+        if is_cold:
+            cost += (env.prices.write - env.prices.read) * (env.system + h)
+        if wants:
             cost += buy_cost(env, h)
             h = post_history(env, h)
             n_compact += 1
             state = policy.on_compact(env, state)
         cost += call_cost(env, h, gt)
         h += gt
-        state = policy.observe(env, state, t, h)
+        state = policy.observe(env, state, t, h, gt)
     return cost, n_compact
 
 
@@ -88,8 +158,9 @@ class Policy:
     name = "base"
     def reset(self, env): return {}
     def should_compact(self, env, s, t, h, g): return False
+    def compact_when_cold(self, env, h): return False
     def on_compact(self, env, s): return self.reset(env)
-    def observe(self, env, s, t, h): return s
+    def observe(self, env, s, t, h, g=0.0): return s
 
 
 class WindowForced(Policy):
@@ -119,11 +190,44 @@ class BreakEven(Policy):
     growth this fires at the EOQ-optimal interval sqrt(2K / (hold * g))."""
     name = "ski-rental break-even"
     def reset(self, env): return {"rent": 0.0}
-    def observe(self, env, s, t, h):
+    def observe(self, env, s, t, h, g=0.0):
         excess = max(h - post_history(env, h), 0.0)
         return {**s, "rent": s["rent"] + hold_rate(env) * excess}
     def should_compact(self, env, s, t, h, g):
         return s["rent"] >= buy_cost(env, h)
+
+
+class ClosedForm(Policy):
+    """Compact when history reaches the steady-state optimum for the observed growth.
+    g_hat is a running mean shrunk toward g0 for the first few calls; no tuning to data.
+    The optimum is cached on g_hat rounded to 2% buckets."""
+    def __init__(self, g0=2_000.0, prior_calls=3):
+        self.g0, self.k0 = g0, prior_calls
+        self.name = "steady-state optimum (online g)"
+        self._cache = {}
+    def _target(self, env, g_hat):
+        key = (id(env), round(np.log(max(g_hat, 1.0)) / 0.02))
+        if key not in self._cache:
+            self._cache[key] = steady_state_optimum(env, g_hat)
+        return self._cache[key]
+    def reset(self, env): return {"sum": 0.0, "n": 0}
+    def on_compact(self, env, s): return s  # growth estimate persists across compactions
+    def observe(self, env, s, t, h, g=0.0): return {"sum": s["sum"] + g, "n": s["n"] + 1}
+    def should_compact(self, env, s, t, h, g):
+        g_hat = (self.k0 * self.g0 + s["sum"]) / (self.k0 + s["n"])
+        return h >= self._target(env, g_hat)
+
+
+class ColdAware(Policy):
+    """Wraps a policy and also compacts on a cold cache whenever that is cheaper right now."""
+    def __init__(self, inner):
+        self.inner = inner
+        self.name = f"{inner.name} + cold-cache rule"
+    def reset(self, env): return self.inner.reset(env)
+    def should_compact(self, env, s, t, h, g): return self.inner.should_compact(env, s, t, h, g)
+    def on_compact(self, env, s): return self.inner.on_compact(env, s)
+    def observe(self, env, s, t, h, g=0.0): return self.inner.observe(env, s, t, h, g)
+    def compact_when_cold(self, env, h): return cold_buy_cost(env, h) < 0
 
 
 class RandomizedBreakEven(BreakEven):

@@ -1,0 +1,241 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\newcommand{\TBD}[1]{\textcolor{red}{[#1]}}
+
+\title{When Should an Agent Compact?\\Cache-Aware Rent-or-Buy Timing for LLM Agent Context}
+\author{Anatole Seychal\\University of California, Berkeley\\\texttt{aseychal@berkeley.edu}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Long-running LLM agents periodically \emph{compact} their context, replacing history with a summary. Every production harness we examined triggers compaction at a fixed token threshold, usually a fraction of the context window. We cast compaction \emph{timing} as an online rent-or-buy problem under real prompt-cache pricing. Carrying history costs cache-read ``rent'' on every call. A compaction is a one-time ``buy'': the summary call, rewriting the cache prefix, and re-fetching dropped state.
+
+In steady state the problem reduces to the Economic Order Quantity. The cost-optimal compaction point $H^\star = s + \sqrt{2gA/h}$ depends on the per-call growth $g$, the fixed buy cost $A$ and the hold price $h$, but \emph{not} on the window. Because the cost curve is flat near the optimum, any trigger within about $2\times$ of $H^\star$ is near-optimal. Window-relative triggers, by contrast, have excess cost that grows linearly with the window. At Claude Code's 1M-token window this is a $\sim$6$\times$ excess on the controllable cost.
+
+We show that the classic ski-rental break-even rule tracks $H^\star$ to within $2b/h$ calls without knowing $g$, which explains when it fails. We give an exact online steady-state rule that matches the best threshold found in hindsight. We also derive a \emph{cold-cache rule}: with 1-hour caching, compacting when an idle gap expires the cache pays off immediately.
+
+In simulations calibrated on 25 Claude Code sessions and 13{,}287 SWE-agent trajectories, the online rule stays within 0.4\% of the best hindsight-tuned threshold in every regime tested. It cuts cost by 7--70\% against a 92\%-of-window trigger, depending on caching and window size. A real-agent pilot driving Claude Code through an external controller \TBD{summarize pilot}.
+\end{abstract}
+
+\section{Introduction}
+Agentic coding assistants run sessions of hundreds of model calls whose context grows with every tool result. Every serious harness eventually \emph{compacts}, summarizing or dropping history so the session can continue. The question of \emph{what} to keep has received sustained attention~\cite{complexitytrap,acon,tracer,compactiontheory}. The question of \emph{when} to compact has not.
+
+In practice the trigger is a constant:
+\begin{itemize}
+\item Claude Code compacts near the window limit (about 967k tokens for 1M-window models), and its CLI refuses windows below 100k.
+\item Anthropic's compaction API defaults to 150k tokens.
+\item OpenAI's Responses API takes a \texttt{compact\_threshold}.
+\item Gemini CLI uses 70\% of the window.
+\end{itemize}
+
+These constants ignore the economics that actually decide the bill. Prompt caching makes carrying history cheap per call (0.05--0.1$\times$ input price) but not free. A compaction invalidates the cached prefix and pays output price for the summary. And sessions end at unknown times, so a compaction just before the end is pure loss.
+
+We make the following contributions.
+\begin{enumerate}
+\item \textbf{A cost model of compaction timing under prompt caching}, separating per-call rent (cache reads) from the one-time buy (summary output, prefix rewrite at the cache-write price, and re-fetch of dropped state).
+\item \textbf{An EOQ characterization.} The steady-state optimum $H^\star=s+\sqrt{2gA/h}$ is independent of the window, and the cost curve is flat around it. Two consequences follow: window-relative triggers are unboundedly suboptimal as windows grow (Cor.~\ref{cor:window}), and no fixed threshold is robust across pricing regimes (Prop.~\ref{prop:robust}).
+\item \textbf{Online policies.}
+  \begin{itemize}
+  \item The ski-rental break-even rule tracks the optimum to within $2b/h$ calls with no knowledge of growth or horizon (Prop.~\ref{prop:be}). The same bound predicts its failure when summaries are lossy.
+  \item An online steady-state rule fixes that failure.
+  \item A cold-cache rule (Prop.~\ref{prop:cold}) gives a simple threshold for compacting when an idle gap has expired the cache.
+  \end{itemize}
+\item \textbf{Evaluation.}
+  \begin{itemize}
+  \item Trace-calibrated simulation over four pricing regimes and four window sizes.
+  \item Empirical worst-case ratios against an offline optimum.
+  \item A real-agent pilot that drives Claude Code with an external compaction controller and measures cost, task success, and recall of state across compactions.
+  \end{itemize}
+\end{enumerate}
+
+\section{Related work}
+
+\paragraph{What to keep.}
+\begin{itemize}
+\item Observation masking matches LLM summarization on SWE-agent at about half the cost~\cite{complexitytrap}.
+\item ACON optimizes compression guidelines~\cite{acon}.
+\item TRACER learns per-tool retention that penalizes re-invocation~\cite{tracer}.
+\item ARC replaces tool outputs with recoverable citations~\cite{arc}.
+\item Context-Folding learns to branch and fold~\cite{folding}.
+\item MemGPT pages memory under model control~\cite{memgpt}.
+\item Tirmazi et al.\ formalize compaction as selection and generation games equivalent to one-way communication complexity~\cite{compactiontheory}. They address the content of a bounded state, not timing or price.
+\item Liu shows that compression increases re-fetch calls even when completion rates hold~\cite{compresscost}. That effect is our parameter $\rho$.
+\end{itemize}
+
+\paragraph{Cache-aware context management.}
+\begin{itemize}
+\item TokenPilot frames the tension between sparse context and a stable cache prefix, and evicts on a lifecycle schedule~\cite{tokenpilot}.
+\item CliffCompaction truncates rather than rewrites to cut cost on long-horizon coding agents~\cite{cliff}.
+\end{itemize}
+Neither derives \emph{when} compaction pays for itself.
+
+\paragraph{Online algorithms.}
+\begin{itemize}
+\item Ski rental is 2-competitive deterministically and $e/(e-1)$ randomized~\cite{karlin88,karlin94}.
+\item Learning-augmented variants trade consistency for robustness~\cite{purohit18}.
+\item Repeated rent-or-buy is the Bahncard problem~\cite{fleischer}.
+\item In serving systems, InferCept decides whether to preserve, discard or swap KV cache during tool calls with a waste heuristic~\cite{infercept}.
+\end{itemize}
+Our steady-state analysis is the classic EOQ of inventory theory~\cite{harris}. To our knowledge it has not been applied to LLM context.
+
+\section{Cost model}
+
+\paragraph{Notation.} All costs are in units of the base input-token price.
+\begin{itemize}
+\item \emph{Prices:} cache reads cost $r$, cache writes $w$ ($1.25$ for 5-minute entries, $2$ for 1-hour entries), and output tokens $o\approx 5$.
+\item \emph{Session state:} a session has a static prefix $S$ (system prompt and tools) and history $H$ that grows by $g_t$ tokens before call $t$.
+\item \emph{Per-call cost:} $rS + hH + w\,g_t + o\,\bar{y}$, where $h=r+q$ includes an optional context-rot price $q$ and $\bar{y}$ is the mean output length.
+\item \emph{Compaction:} compacting at history $H$ leaves $s(H)=\sigma(H)+\rho H$, a summary of size $\sigma$ plus re-fetched state.
+\end{itemize}
+
+The buy cost is
+\begin{equation}
+K(H)=r(S+H)+o\,\sigma(H)+(w-r)\,s(H)+P,
+\end{equation}
+where $P$ is an optional quality penalty. $K$ is affine in $H$ with slope $b=r+(w-r)\rho$. Let $A$ denote its intercept at the post-compaction state. All results below are implemented and unit-tested in our released simulator.
+
+\section{Theory}
+
+\begin{proposition}[EOQ optimum]\label{prop:eoq}
+Suppose a session repeatedly compacts at $H$ and regrows at $g$ tokens per call. Its long-run controllable cost per call is $f(n)=hgn/2+A/n$ with cycle length $n=(H-s)/g$. Minimizing gives
+\[
+n^\star=\sqrt{2A/(hg)},\qquad H^\star=s+\sqrt{2gA/h}.
+\]
+$H^\star$ does not depend on the window $W$.
+\end{proposition}
+
+When $\sigma$ depends on $H$, we minimize the exact steady-state rate numerically. The resulting ``steady-state optimum'' coincides with the formula when $\sigma$ is constant.
+
+\begin{proposition}[Flatness]\label{prop:flat}
+$f(xn^\star)/f(n^\star)=(x+1/x)/2$.
+\end{proposition}
+
+\begin{corollary}[Window-relative triggers]\label{cor:window}
+A trigger at fraction $\tau$ of the window has $x\approx(\tau W-S-s)/(H^\star-s)$. Its excess controllable cost therefore grows linearly in $W$. At Claude Code prices, with $g=3.8$k tokens per call, compacting at 96.7\% of a 1M window gives $x\approx 12$, about $6\times$ the optimum.
+\end{corollary}
+
+\begin{proposition}[No robust fixed threshold]\label{prop:robust}
+A fixed threshold $H_0$ has $x=(H_0-s)/(H^\star-s)$, and $H^\star\propto\sqrt{A/h}$. If $A/h$ varies by a factor $F$ across the regimes a product serves (cache tier, summary length, quality penalty), some regime has $x\geq\sqrt{F}$.
+\end{proposition}
+
+\begin{proposition}[Break-even tracks EOQ]\label{prop:be}
+The ski-rental rule compacts once the cumulative rent on the compactable excess reaches $K(H)$. In steady state it fires at
+\[
+n_{BE}=(b/h-\tfrac12)+\sqrt{(b/h-\tfrac12)^2+n^{\star2}}\;\leq\;n^\star+2b/h .
+\]
+\end{proposition}
+
+Without re-fetch, $b/h\le 1$ and the overshoot is negligible. With 1-hour caching ($w/r=40$) and $\rho=0.1$, however, $b/h\approx 4.9$. This predicts the degradation of break-even under lossy summaries that we observe in \S\ref{sec:eval}. Within a single regrowth phase, the break-even rule inherits the classic $(2+\epsilon)$ and $e/(e-1)$ competitive ratios against an adversarial session end.
+
+\begin{proposition}[Cold-cache rule]\label{prop:cold}
+Suppose an idle gap has expired the cache. Not compacting rewrites $S+H$ at price $w$. Compacting reads the history once uncached for the summary and writes only $S+s$. The compaction is therefore immediately profitable when
+\[
+(w-1)(S+H) > o\,\sigma+w\,(S+s)+P .
+\]
+With $w=2$ (1-hour entries) and $S=30$k, this holds once $H>67$k. With $w=1.25$, the threshold is about 841k.
+\end{proposition}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/flatness.pdf}
+\caption{Steady-state cost of a fixed compaction trigger relative to the optimum, at 3.8k tokens of growth per call (our local Claude Code sessions). Curves are flat within about $2\times$ of $H^\star$. Window-relative product triggers sit far to the right.}
+\label{fig:flat}
+\end{figure}
+
+\section{Evaluation}\label{sec:eval}
+
+\paragraph{Data.}
+\begin{itemize}
+\item \textbf{Claude Code sessions.} 25 of our own sessions, from which we extract only numeric token usage: 1{,}465 calls. 94.6\% of input tokens are cache reads, mean growth is 3.8k tokens per call, and session length is roughly lognormal with a median of 32 calls. Inter-call gaps exceed one hour 1.5\% of the time.
+\item \textbf{SWE-agent trajectories.} 13{,}287 trajectories from two public shards~\cite{nebius}. Mean growth is 484 tokens per call; 29\% of runs ended by exhausting the context window.
+\end{itemize}
+We report cost relative to a 92\%-of-window trigger, and against an offline optimum computed by beam DP over compaction times.
+
+\paragraph{Policies.}
+\begin{itemize}
+\item Window-relative thresholds.
+\item The best fixed absolute threshold, tuned in hindsight on the evaluation data (an oracle baseline).
+\item Deterministic break-even.
+\item Randomized break-even.
+\item The online steady-state rule, using a running estimate of $g$ and no tuning.
+\item A cold-cache wrapper around each of the above.
+\end{itemize}
+
+\paragraph{Results.} Table~\ref{tab:main} gives the main results.
+\begin{itemize}
+\item The online steady-state rule matches the hindsight-tuned threshold to within 0.4\% everywhere.
+\item Savings are largest when caching is absent or the window is large.
+\item Under 1-hour caching at a 200k window they are modest (7\%).
+\item Break-even loses ground exactly where Prop.~\ref{prop:be} predicts.
+\item Thresholds tuned once fail when the regime moves. A 30k threshold costs $+51\%$ under a 200k-token quality penalty, and the 92\% trigger costs $+186\%$ uncached at 1M.
+\item Break-even stays within 1--4\% of the best threshold for each regime.
+\item \TBD{worst-case table.}
+\item With 1-hour caching at 1M, the cold-cache rule alone cuts the 92\% trigger's cost by 17\%.
+\end{itemize}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Cost change vs.\ a 92\%-of-window trigger (negative is cheaper). ``CF'' is the online steady-state rule. ``Best fixed'' is tuned in hindsight on the evaluation data.}
+\label{tab:main}
+\TBD{filled from results/closed\_form.json}
+\end{table}
+
+\paragraph{Real-agent pilot.}
+We drive Claude Code (Sonnet 5.5) headlessly on a 13- or 25-message session.
+\begin{itemize}
+\item \textbf{Task.} Twelve standard-library modules each contain one injected bug, reported vaguely one message at a time. The long variant adds twelve test-writing requests.
+\item \textbf{Ground rules.} Rules stated only in the first message (tag every changed line; create no files in \texttt{pkg/}) probe whether compaction drops irrecoverable instructions.
+\item \textbf{Recall probe.} A final request asks for every fix's original buggy expression, which is irrecoverable once fixed.
+\item \textbf{Scoring.} Hidden differential tests against the untouched originals.
+\item \textbf{Controller.} Because the CLI refuses compaction windows below 100k, an external controller sends \texttt{/compact} between turns when its policy fires.
+\item \textbf{Measured compaction size.} Claude Code's compaction leaves 10--13k tokens of conversation.
+\end{itemize}
+\TBD{pilot table and findings.}
+
+\section{Implications}
+\begin{enumerate}
+\item \textbf{Trigger on economics, not on the window.} Compact near $H^\star$, which is tens of thousands of tokens for typical coding agents. The trigger should not grow with the context window; at 1M windows, window-relative triggers waste most of the controllable spend.
+\item \textbf{Do not floor the trigger above the optimum.} A minimum of 100k is above $H^\star$ for sessions growing slower than about 5k tokens per call.
+\item \textbf{Exploit cold caches.} With 1-hour cache entries, compact when an idle gap expires the cache once history exceeds about 70k.
+\item \textbf{Shorter summaries move the optimum earlier.} $H^\star$ scales with $\sqrt{A}$, and $A$ is dominated by the summary's output cost.
+\end{enumerate}
+
+\section{Limitations}
+\begin{itemize}
+\item The simulation models quality only through re-fetch and a per-compaction penalty. Our real-agent pilot is small and uses one model and one task family.
+\item The local traces come from a single user.
+\item SWE-agent token counts are approximated as characters divided by 4.
+\item The offline optimum is a beam-search approximation.
+\end{itemize}
+
+\bibliographystyle{plain}
+\begin{thebibliography}{99}
+\bibitem{complexitytrap} T.~Lindenbauer et al. The complexity trap: Simple observation masking is as efficient as LLM summarization for agent context management. arXiv:2508.21433, 2025.
+\bibitem{acon} M.~Kang et al. ACON: Optimizing context compression for long-horizon LLM agents. arXiv:2510.00615, 2025.
+\bibitem{tracer} Lin et al. TRACER. arXiv:2608.29363, 2026.
+\bibitem{arc} Dang et al. Addressable recall compaction. arXiv:2607.25066, 2026.
+\bibitem{folding} Sun et al. Scaling long-horizon LLM agent via context-folding. arXiv:2510.11967, 2025.
+\bibitem{memgpt} C.~Packer et al. MemGPT: Towards LLMs as operating systems. arXiv:2310.08560, 2023.
+\bibitem{compactiontheory} H.~Tirmazi, S.~Markelon, A.~Bishop, M.~Mitzenmacher. Context compaction theory. arXiv:2608.01326, 2026.
+\bibitem{compresscost} S.~Liu. What does context compression cost an agent? arXiv:2608.16370, 2026.
+\bibitem{tokenpilot} B.~Xu et al. TokenPilot: Cache-efficient context management for LLM agents. arXiv:2606.17016, 2026.
+\bibitem{cliff} T.~Nguyen, E.~Cho, B.~Chen, T.~Dettmers. CliffCompaction: Cost-efficient compaction for long-horizon coding agents. arXiv:2609.26779, 2026.
+\bibitem{karlin88} A.~Karlin, M.~Manasse, L.~Rudolph, D.~Sleator. Competitive snoopy caching. Algorithmica, 1988.
+\bibitem{karlin94} A.~Karlin, M.~Manasse, L.~McGeoch, S.~Owicki. Competitive randomized algorithms for nonuniform problems. Algorithmica, 1994.
+\bibitem{purohit18} M.~Purohit, Z.~Svitkina, R.~Kumar. Improving online algorithms via ML predictions. NeurIPS, 2018.
+\bibitem{fleischer} R.~Fleischer. On the Bahncard problem. COCOON, 1998.
+\bibitem{infercept} R.~Abhyankar et al. InferCept: Efficient intercept support for augmented large language model inference. ICML, 2024.
+\bibitem{harris} F.~W.~Harris. How many parts to make at once. Factory, The Magazine of Management, 1913.
+\bibitem{nebius} Nebius. SWE-agent trajectories dataset. Hugging Face, 2024.
+\end{thebibliography}
+\end{document}

@@ -68,3 +68,44 @@ def test_quality_penalty_reduces_compactions():
     _, n0 = sim.run(sim.Env(window=1_000_000), g, sim.BreakEven())
     _, n1 = sim.run(sim.Env(window=1_000_000, penalty=200_000), g, sim.BreakEven())
     assert n1 < n0
+
+
+def test_closed_form_point_is_window_independent_and_scales_with_root_hold_price():
+    base = sim.Env(system=30_000, prices=sim.CLAUDE_CODE, rho=0.0, sigma_min=4_000, sigma_max=4_000)
+    h1 = sim.eoq_history(base, 3_000)
+    assert sim.eoq_history(base.with_(window=1_000_000), 3_000) == pytest.approx(h1)
+    cheaper = base.with_(prices=sim.Prices(read=0.025, write=2.0, out=5.0))
+    s = sim.post_history(base, h1)
+    # halving the hold price raises the excess by about sqrt(2) (A also shrinks slightly)
+    ratio = (sim.eoq_history(cheaper, 3_000) - s) / (h1 - s)
+    assert 1.2 < ratio < math.sqrt(2) + 1e-9
+
+
+def test_break_even_overshoot_is_bounded_by_two_b_over_h():
+    g = 2_000.0
+    env = sim.Env(system=30_000, window=10_000_000, out_per_call=0, prices=sim.CLAUDE_CODE,
+                  rho=0.1, sigma_min=4_000, sigma_max=4_000)
+    _, n = sim.run(env, np.full(3_000, g), sim.BreakEven())
+    interval = 3_000 / n
+    h_star = sim.eoq_history(env, g)
+    n_star = (h_star - sim.post_history(env, h_star)) / g
+    b = env.prices.read + (env.prices.write - env.prices.read) * env.rho
+    assert n_star - 1 <= interval <= n_star + 2 * b / sim.hold_rate(env) + 1
+
+
+def test_cold_cache_compaction_pays_only_with_expensive_writes():
+    one_hour = sim.Env(system=30_000, prices=sim.CLAUDE_CODE)
+    five_min = sim.Env(system=30_000, prices=sim.CACHED)
+    assert sim.cold_buy_cost(one_hour, 150_000) < 0
+    assert sim.cold_buy_cost(five_min, 150_000) > 0
+
+
+def test_cold_aware_never_costs_more_on_cold_calls():
+    env = sim.Env(window=1_000_000, prices=sim.CLAUDE_CODE)
+    rng = np.random.default_rng(1)
+    for _ in range(10):
+        g = rng.integers(1_000, 8_000, size=80).astype(float)
+        cold = rng.random(80) < 0.05
+        plain = sim.run(env, g, sim.FixedThreshold(0.92), cold=cold)[0]
+        aware = sim.run(env, g, sim.ColdAware(sim.FixedThreshold(0.92)), cold=cold)[0]
+        assert aware <= plain * (1 + 1e-9)
