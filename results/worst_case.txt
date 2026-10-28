@@ -1,16 +1,16 @@
 
 window 200k, Claude Code prices: cost / offline optimum over all prefixes
-  fixed 80k history                  max 1.159   p99 1.119   mean 1.034
-  ski-rental break-even              max 1.162   p99 1.131   mean 1.041
-  ski-rental randomized              max 1.187   p99 1.125   mean 1.039
-  steady-state optimum (online g)    max 1.195   p99 1.102   mean 1.022
-  fixed 30k history                  max 1.206   p99 1.134   mean 1.030
-  fixed 92% of window                max 1.293   p99 1.220   mean 1.055
+  ski-rental break-even              max 1.151   p99 1.107   mean 1.013
+  steady-state optimum (online g)    max 1.152   p99 1.122   mean 1.018
+  fixed 92% of window                max 1.179   p99 1.110   mean 1.013
+  fixed 80k history                  max 1.260   p99 1.170   mean 1.039
+  ski-rental randomized              max 1.511   p99 1.225   mean 1.034
+  fixed 30k history                  max 1.797   p99 1.674   mean 1.284
 
 window 1000k, Claude Code prices: cost / offline optimum over all prefixes
-  fixed 80k history                  max 1.159   p99 1.119   mean 1.034
-  ski-rental break-even              max 1.176   p99 1.163   mean 1.044
-  steady-state optimum (online g)    max 1.195   p99 1.102   mean 1.022
-  fixed 30k history                  max 1.206   p99 1.134   mean 1.030
-  ski-rental randomized              max 1.219   p99 1.141   mean 1.041
-  fixed 92% of window                max 1.636   p99 1.553   mean 1.096
+  ski-rental break-even              max 1.151   p99 1.107   mean 1.013
+  steady-state optimum (online g)    max 1.152   p99 1.123   mean 1.019
+  fixed 80k history                  max 1.260   p99 1.175   mean 1.041
+  fixed 92% of window                max 1.497   p99 1.432   mean 1.061
+  ski-rental randomized              max 1.542   p99 1.218   mean 1.035
+  fixed 30k history                  max 1.797   p99 1.674   mean 1.287

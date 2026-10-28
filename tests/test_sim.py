@@ -82,9 +82,10 @@ def test_closed_form_point_is_window_independent_and_scales_with_root_hold_price
 
 
 def test_break_even_overshoot_is_bounded_by_two_b_over_h():
+    """Proposition 5 (rho = 0, constant summary): n_BE <= n* + 2 b / h."""
     g = 2_000.0
     env = sim.Env(system=30_000, window=10_000_000, out_per_call=0, prices=sim.CLAUDE_CODE,
-                  rho=0.1, sigma_min=4_000, sigma_max=4_000)
+                  rho=0.0, sigma_min=4_000, sigma_max=4_000)
     _, n = sim.run(env, np.full(3_000, g), sim.BreakEven())
     interval = 3_000 / n
     h_star = sim.eoq_history(env, g)
@@ -109,3 +110,11 @@ def test_cold_aware_never_costs_more_on_cold_calls():
         plain = sim.run(env, g, sim.FixedThreshold(0.92), cold=cold)[0]
         aware = sim.run(env, g, sim.ColdAware(sim.FixedThreshold(0.92)), cold=cold)[0]
         assert aware <= plain * (1 + 1e-9)
+
+
+@pytest.mark.parametrize("rho", [0.0, 0.1, 0.3])
+@pytest.mark.parametrize("prices", [sim.UNCACHED, sim.CACHED, sim.CLAUDE_CODE])
+def test_closed_form_matches_exact_steady_state_optimum(rho, prices):
+    env = sim.Env(system=40_000, prices=prices, rho=rho)
+    for g in (500.0, 3_600.0, 8_000.0):
+        assert sim.eoq_history(env, g) == pytest.approx(sim.steady_state_optimum(env, g), rel=0.02)

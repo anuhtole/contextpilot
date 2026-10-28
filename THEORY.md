@@ -5,149 +5,106 @@ All costs are in units of the base input-token price.
 ## Notation
 
 **Prices**
-- `r`: cache-read price per token, for example 0.1 or 0.05.
-- `w`: cache-write price per token, for example 1.25 for the 5-minute cache or 2 for the 1-hour cache.
-- `o`: output price per token, about 5.
-- `h = r + q`: per-call cost of holding one history token. Here `q` is an optional context-rot (quality) price.
+- `r`: cache read, 0.1 or 0.05.
+- `w`: cache write, 1.25 for 5-minute entries or 2 for 1-hour entries.
+- `o`: output, about 5.
+- `h = r + q`: per-call price of holding one history token, where `q` is an optional context-rot price.
 
 **Session**
-- `S`: static prefix (system prompt plus tools).
-- `H`: conversation history.
-- `g`: mean tokens appended per call.
+- `S`: static prefix.
+- `H`: history.
+- `g`: mean growth per call.
 
-**Compaction.** Compacting history `H` replaces it with:
-- a summary of size `σ(H)`, and
+**Compaction.** Compacting at history `H` leaves `s(H) = σ + ρH`, made of:
+- the post-compaction conversation `σ` (summary plus restored files), and
 - re-fetched state `ρH`.
 
-So the post-compaction history is `s(H) = σ(H) + ρH`.
-
-Its one-time "buy" cost is
+Its one-time cost is
 
 ```
-K(H) = r(S + H)            read the history for the summary call
-     + o σ(H)              write the summary
-     + (w − r) s(H)        rewrite premium for the new, short prefix
-     + P                   optional quality penalty per compaction
+K(H) = r(S + H) + o σ + (w − r) s(H) + P
 ```
 
-`K` is affine in `H` with slope `b = r + (w − r)ρ`. Its intercept, evaluated at the post-compaction state, is
+**Measured in our Claude Code pilot** (`results/pilot/`, `results/refetch.txt`):
+- `σ ≈ 11k`, roughly independent of `H` (9–15k across 34 compactions).
+- `ρ ≈ 0.001`. Re-reads of dropped content were negligible, because Claude Code restores recently used files into `σ`.
+
+## 1. Optimal compaction point (EOQ)
+
+In steady state the session compacts at `H` and regrows to it in `n` calls. Then `H = (σ + g n)/(1 − ρ)`, and the per-call cost that the trigger controls is
 
 ```
-A = K(H) − b (H − s(H))
+f(n) = h g n (1 + ρ) / (2 (1 − ρ)) + A'/n,    A' = r S + o σ + P + w σ / (1 − ρ)
 ```
 
-## 1. The optimal compaction point (EOQ form)
-
-Consider the steady state: compact at history `H`, regrow from `s` at `g` tokens per call, and repeat. A cycle lasts `n = (H − s)/g` calls.
-
-- Holding the excess above `s` costs `h·g·n(n−1)/2` per cycle.
-- The buy costs `A + b·g·n` per cycle.
-
-Ignoring terms that do not depend on `n`, the average cost per call is
+**Proposition 1.**
 
 ```
-f(n) = h g n / 2 + A / n + b g + const
+n* = sqrt( 2 A' (1 − ρ) / (h g (1 + ρ)) ),      H* = (σ + g n*) / (1 − ρ)
 ```
 
-**Proposition 1.** The cost-optimal interval and compaction point are
+For `ρ = 0` this is the Economic Order Quantity `H* = σ + sqrt(2 g A / h)` with `A = rS + (o + w)σ + P`.
+
+- **H\* does not depend on the window.**
+- It scales as `sqrt(g)`, `sqrt(A)` and `1/sqrt(h)`.
+
+`sim.eoq_history` implements this closed form. `sim.steady_state_optimum` minimizes the exact steady-state cost numerically for any summary-size model. The two agree within 2% across prices, `ρ ∈ {0, 0.1, 0.3}`, and `g` from 500 to 8,000 (`tests/test_sim.py`).
+
+At Claude Code prices (`r = 0.05`, `w = 2`, `o = 5`) with `S = 40k`, `σ = 11k`, `ρ = 0`:
+
+| Growth `g` (tokens/call) | H\* (history) | Total context at compaction |
+|---|---|---|
+| 700 (our pilot) | about 58k | about 98k |
+| 3,600 (our sessions) | about 118k | about 158k |
+
+## 2. Flatness and window-relative triggers
+
+**Proposition 2.** `f(x n*) / f(n*) = (x + 1/x) / 2`.
+
+- A trigger within 2x of the optimum loses at most 25% of the controllable cost.
+
+**Corollary 3 (steady state).** A trigger at a fraction τ of the window has `x ≈ (τW − S − s)/(H* − s)`, so its excess grows linearly in `W`.
+
+- At Claude Code prices and `g = 3.6k`, compacting at 967k gives `x ≈ 8.6`: 4.4x the optimal controllable cost.
+- At `g = 700` it gives `x ≈ 19.5`: 9.8x.
+- At the same growth, the 150k API default has `x ≈ 0.93`, which is essentially optimal.
+- Finite sessions cap the realized excess. A session that ends before the trigger fires never pays it, so the steady-state excess is an upper envelope rather than an expectation.
+
+**Proposition 4 (no single fixed threshold is robust).** The ratio `x = (H0 − s)/(H* − s)` moves with `sqrt(A/h)`.
+
+- If `A/h` spans a factor `F` across the regimes a product serves, the best single threshold (at the geometric mean) still has `max(x, 1/x) ≥ F^(1/4)` in some regime.
+- Its excess there is at least `(F^(1/4) + F^(−1/4))/2`.
+
+## 3. Ski-rental break-even tracks the optimum
+
+The break-even rule compacts once the accumulated rent on the compactable excess, `h·Σ_k (H_k − s(H_k))`, reaches `K(H)`.
+
+**Proposition 5 (constant σ, ρ = 0).** The excess after `k` calls is `g·k`, and `K = A + b g n` with `b = r`. The rule therefore fires at
 
 ```
-n* = sqrt( 2A / (h g) )
-H* = s + sqrt( 2 g A / h )
+n_BE = (b/h − 1/2) + sqrt( (b/h − 1/2)^2 + (n*)^2 )  ≤  n* + 2b/h
 ```
 
-This is the Economic Order Quantity (Harris, 1913) with ordering cost `A` and holding cost `h·g`. Two properties follow:
+- This holds with no knowledge of `g` or of the horizon.
+- With `b = r ≤ h`, the overshoot is at most about 2 calls, so the cost penalty is negligible by Proposition 2.
 
-- **H\* does not depend on the context window `W`.**
-- H\* scales as `sqrt(g)` and as `1/sqrt(h)`. Cheaper cache reads make later compaction optimal, but only by the square root: halving `r` raises H\* by √2.
+For `ρ > 0` we have no closed-form bound; `results/transfer.txt` reports break-even's behavior empirically. We do **not** claim worst-case competitive ratios for the multi-cycle problem: the buy cost rises over time and rent continues after a buy. `experiments/worst_case.py` instead reports empirical ratios against an offline beam-search optimum.
 
-The fixed point is solved numerically because `σ` and `s` depend on `H`; see `sim.eoq_history`. When the summary size grows with `H`, the square-root form overstates H\*. `sim.steady_state_optimum` minimizes the exact steady-state cost per call instead, and that is what the online policy uses: it lands within 0.4% of the best threshold tuned in hindsight in every setting (`results/closed_form.txt`). With Claude Code prices (`r = 0.05`, `w = 2`, `o = 5`), `S = 40k` and `ρ = 0.1`:
+## 4. Cold-cache rule
 
-| Growth `g` (tokens/call) | H\* |
-|---|---|
-| 500 | about 23k |
-| 2,000 | about 47k |
-| 3,800 | about 86k |
-| 8,000 | about 175k |
+After an idle gap longer than the cache TTL, not compacting rewrites `S + H` at `w`. Compacting instead:
+- reads the history once uncached for the summary,
+- pays `o·σ` for the summary output, and
+- writes only `S + s`.
 
-## 2. Flatness, and why window-relative triggers fail
-
-**Proposition 2 (EOQ flatness).** For an interval `n = x·n*`,
-
-```
-f_ctrl(x n*) / f_ctrl(n*) = (x + 1/x) / 2
-```
-
-where `f_ctrl` is the part of the cost the trigger controls. Consequences:
-
-- Being off by 2x in either direction costs only 25% of the controllable cost. That is why any trigger in the right *order of magnitude* is close to optimal.
-- A trigger set as a fraction τ of the window compacts at `H_W = τW − S`. That gives `x ≈ (τW − S − s) / (H* − s)`, which **grows linearly in W**.
-
-**Corollary 3.** Window-relative triggers have unbounded excess cost as `W → ∞`. Example: Claude Code compacts at about 96.7% of a 1M window. With `g = 3.8k`, that is `x ≈ 12`, so the controllable cost is about **6x** the optimum. The 1M-window simulations show the same thing: break-even and the closed form save 31–50% against a 92%-of-window trigger.
-
-**Proposition 4 (no fixed threshold is robust).** A fixed absolute threshold `H0` has `x = (H0 − s)/(H* − s)`, and H\* moves with the ratio `A/h`, which differs across:
-
-- cache pricing,
-- summary cost,
-- the quality penalty `P`.
-
-If `A/h` ranges over a factor `F` across the regimes a product serves, some regime sees `x ≥ √F`, and the excess cost grows without bound in `F`. Empirically (`results/transfer.txt`), a 30k threshold tuned once costs +51% when `P = 200k`.
-
-## 3. The ski-rental break-even rule tracks EOQ automatically
-
-The break-even rule compacts when the cumulative rent on the compactable excess reaches the current buy cost: `h·Σ_k (H_k − s(H_k)) ≥ K(H)`.
-
-In steady state this is `h·g·n(n+1)/2 ≥ A + b·g·n`. Solving:
-
-```
-n_BE = (b/h − 1/2) + sqrt( (b/h − 1/2)^2 + n*^2 )   ≤   n* + 2b/h
-```
-
-**Proposition 5.** The break-even rule fires within an additive `2b/h` calls of the EOQ optimum, with no knowledge of `g`, of the prices beyond the current `K`, or of the session length.
-
-- With no re-fetch (`ρ = 0`), `b/h = r/h ≤ 1`, so the overshoot is at most about 2 calls. By Proposition 2 that is negligible.
-- With re-fetch, `b/h = 1 + (w/r − 1)ρ`. With 1-hour caching (`w/r = 40`) and `ρ = 0.1`, `b/h ≈ 4.9`, so break-even overshoots by up to about 10 calls.
-- This explains why plain break-even degrades when summaries are lossy (+8–12% in `results/transfer.txt`). The closed-form rule `H ≥ s + sqrt(2ĝA/h)`, with `ĝ` a running mean of observed growth, corrects for it.
-
-**Single-phase competitiveness.** Within one rent-or-buy phase (one regrowth cycle) with nondecreasing per-call rent:
-
-- the break-even rule is `(2 + ε)`-competitive against an adversary who picks when the session ends, where `ε` is the largest single-call rent divided by `K`;
-- buying at a random fraction `z` of break-even, with `z ~ e^z/(e−1)` on [0, 1], gives `e/(e−1)` in expectation.
-
-These are the classic bounds (Karlin et al., 1988). The multi-phase case — the regrowth state depends on past decisions — is evaluated empirically against an offline beam-search optimum in `experiments/worst_case.py`.
-
-## 4. The cold-cache rule
-
-After an idle gap longer than the cache TTL, the next call must rewrite the whole prefix at `w`. Compacting at that moment costs:
-
-- an uncached read for the summary, `(S + H)`,
-- the summary output, `o·σ`,
-- a rewrite of only the short new prefix, `w·(S + s)`,
-
-instead of `w·(S + H)`. The incremental buy cost is therefore
-
-```
-K_cold(H) = (1 − w)(S + H) + o σ + w (S + s) + P
-```
-
-**Proposition 6.** When `w > 1`, compacting on a cold cache is immediately cheaper than not compacting whenever
+**Proposition 6.** Compacting at a cold cache is immediately profitable when
 
 ```
 (w − 1)(S + H) > o σ + w (S + s) + P
 ```
 
-It also removes all future rent on the dropped history.
+With `S = 40k` and `σ = 11k`:
+- 1-hour entries (`w = 2`): it pays once `H > 118k`.
+- 5-minute entries (`w = 1.25`): `H > 436k`.
 
-- 1-hour cache (`w = 2`), `S = 30k`: compact on a cold cache once history exceeds about **67k**.
-- 5-minute cache (`w = 1.25`): the threshold is about **841k**, so in practice never.
-
-The cold-cache rule therefore matters specifically for harnesses that buy 1-hour cache entries. In 1.5% of the inter-call gaps in our local Claude Code sessions, the gap exceeds an hour. Adding this rule alone to a 92%-of-window trigger cuts simulated cost by **17%** at 1M (`results/cold_cache.txt`). Economic triggers already keep the context small, so for them the rule adds little.
-
-## What is new here
-
-- **Prior work.** Product triggers are fixed thresholds. Prior papers study what to keep (Tirmazi et al. 2026; ACON; TRACER) or cache-stable eviction schedules (TokenPilot). Classic ski rental and EOQ are textbook results.
-- **Our contribution:**
-  1. Casting compaction *timing* under real prompt-cache pricing as an EOQ / rent-or-buy problem.
-  2. The window-independence and flatness results, which show that window-relative triggers are unboundedly suboptimal as windows grow.
-  3. The `2b/h` tracking bound that explains when break-even works and when it does not.
-  4. The cold-cache rule, with its threshold.
+Simulated idle gaps are Bernoulli at the rates measured in our sessions: 1.5% of gaps exceed an hour and 3.5% exceed 5 minutes. Results are in `results/cold_cache.txt`.

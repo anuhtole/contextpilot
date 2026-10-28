@@ -19,8 +19,8 @@ SERIES = [("#2a78d6", "-"), ("#eb6834", "--"), ("#1baf7a", "-."), ("#eda100", ":
 INK, MUTED, GRID = "#1f1f1e", "#6b6a64", "#e4e3de"
 REGIMES = [(sim.UNCACHED, "uncached"), (sim.CACHED, "cached 0.1x"),
            (sim.CACHED_55, "cached 0.05x"), (sim.CLAUDE_CODE, "Claude Code (0.05x, 1h writes)")]
-# summaries of a roughly constant size (the square-root formula is then exact)
-ENV = sim.Env(system=40_000, out_per_call=1_200, sigma_frac=0.0, sigma_min=4_000, sigma_max=4_000)
+# measured defaults: constant ~11k post-compaction context, negligible re-fetch
+ENV = sim.Env(system=40_000, out_per_call=1_200)
 PRODUCT_TRIGGERS = [(100_000 - 40_000, "Claude Code\nflag floor (100k)"),
                     (150_000 - 40_000, "Anthropic API\ndefault (150k)"),
                     (967_000 - 40_000, "Claude Code\n1M window (~967k)")]
@@ -36,7 +36,7 @@ def style(ax):
     ax.set_axisbelow(True)
 
 
-def flatness(g=3_800):
+def flatness(g=3_600):
     fig, ax = plt.subplots(figsize=(6.2, 3.4))
     hs = np.geomspace(8_000, 1_200_000, 400)
     for (prices, label), (color, dash) in zip(REGIMES, SERIES):
@@ -70,7 +70,7 @@ def optimum_vs_growth():
     for h, label in PRODUCT_TRIGGERS:
         ax.axhline(h, color=MUTED, linewidth=0.8, linestyle=(0, (2, 2)))
         ax.text(210, h * 1.06, label.replace("\n", " "), fontsize=6.5, color=MUTED, va="bottom")
-    for g, label in ((484, "SWE-agent\nmean"), (3_828, "local Claude Code\nmean")):
+    for g, label in ((491, "SWE-agent\nmean"), (3_601, "local Claude Code\nmean")):
         ax.axvline(g, color=GRID, linewidth=1.2)
         ax.text(g * 1.05, 4.0e5, label, fontsize=6.5, color=MUTED, ha="left", va="center")
     ax.set_xscale("log")

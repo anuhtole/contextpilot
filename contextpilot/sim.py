@@ -29,10 +29,12 @@ class Env:
     system: int = 20_000        # static prefix (system prompt + tools), stays cached
     window: int = 200_000       # hard context limit
     out_per_call: int = 600     # mean output tokens per call
-    sigma_frac: float = 0.05    # summary size as a fraction of history
-    sigma_min: int = 2_000
-    sigma_max: int = 12_000
-    rho: float = 0.10           # fraction of compacted history re-fetched afterwards
+    # Claude Code leaves ~11k tokens after /compact regardless of history (pilot: 9-15k),
+    # and re-fetch of dropped content was ~0.1% of dropped tokens (results/refetch.txt).
+    sigma_frac: float = 0.0     # summary size as a fraction of history (0 = constant)
+    sigma_min: int = 11_000
+    sigma_max: int = 11_000
+    rho: float = 0.0            # fraction of compacted history re-fetched afterwards
     quality: float = 0.0        # optional context-rot price per token held per call
     penalty: float = 0.0        # quality cost per compaction, in base-input-token units
     prices: Prices = CACHED
@@ -63,23 +65,19 @@ def buy_cost(env, h):
     return read_for_summary + write_summary + rewrite_premium + env.penalty
 
 
-def fixed_buy_cost(env, h):
-    """Part of the buy cost that does not scale with the history carried into it.
+def eoq_history(env, g):
+    """Closed-form steady-state optimum for a constant summary size sigma.
 
-    The slope b of buy_cost in H only adds a constant b*g per call to the
-    long-run average, so it does not move the optimal compaction interval."""
-    p = env.prices
-    slope = p.read + max(p.write - p.read, 0.0) * env.rho
-    return buy_cost(env, h) - slope * (h - post_history(env, h))
-
-
-def eoq_history(env, g, iters=30):
-    """Closed-form compaction point: H* = s + sqrt(2 g A / hold), solved as a fixed
-    point because the summary size and re-fetch depend on H. Independent of the window."""
-    h = 50_000.0
-    for _ in range(iters):
-        h = post_history(env, h) + np.sqrt(2.0 * g * fixed_buy_cost(env, h) / hold_rate(env))
-    return float(h)
+    With s = sigma + rho*H, a cycle of n calls ends at H = (sigma + g n)/(1 - rho);
+    the per-call cost is h g n (1 + rho) / (2 (1 - rho)) + A'/n with
+    A' = r S + o sigma + P + w sigma / (1 - rho), so
+    n* = sqrt(2 A' (1 - rho) / (h g (1 + rho))) and H* = (sigma + g n*) / (1 - rho).
+    For rho = 0 this is the EOQ H* = sigma + sqrt(2 g A / h), A = r S + (o + w) sigma + P.
+    Independent of the window. Use steady_state_optimum when sigma depends on H."""
+    p, rho, sig = env.prices, env.rho, env.sigma_min
+    a = p.read * env.system + p.out * sig + env.penalty + max(p.write, p.read) * sig / (1 - rho)
+    n = np.sqrt(2 * a * (1 - rho) / (hold_rate(env) * g * (1 + rho)))
+    return float((sig + g * n) / (1 - rho))
 
 
 def steady_state_rate(env, g, h):
@@ -173,6 +171,15 @@ class FixedThreshold(Policy):
         self.name = f"fixed {int(round(frac * 100))}% of window"
     def should_compact(self, env, s, t, h, g):
         return env.system + h >= self.frac * env.window
+
+
+class FixedContext(Policy):
+    """Product-style trigger on total context tokens (e.g. the 150k API default)."""
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.name = f"fixed {tokens // 1000}k context"
+    def should_compact(self, env, s, t, h, g):
+        return env.system + h >= self.tokens
 
 
 class FixedTokens(Policy):

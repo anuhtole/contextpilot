@@ -1,0 +1,7 @@
+v1-early-r1      compactions  2  dropped   83.0k  re-fetched   0.0k  rho 0.000
+v1L-early-r1     compactions  6  dropped  260.6k  re-fetched   0.1k  rho 0.001
+v2-early-r1      compactions  2  dropped   79.1k  re-fetched   0.0k  rho 0.000
+v2L-early-r1     compactions  9  dropped  367.6k  re-fetched   0.3k  rho 0.001
+v3-early-r1      compactions  2  dropped   80.9k  re-fetched   0.0k  rho 0.000
+v3L-early-r1     compactions 13  dropped  520.4k  re-fetched   0.8k  rho 0.002
+pooled rho = 0.001

@@ -1,5 +1,17 @@
 # Real-agent quality evaluation plan (draft, 2026-10-28)
 
+## Status after the pilot (`bench/`, 18 runs, $18.43)
+
+- **Harness pivot.** The pilot ran on headless Claude Code rather than mini-swe-agent. The Claude Code CLI refuses `--autocompact` windows below 100k, so arms are driven by an external controller that sends `/compact` between user turns.
+- **Established:**
+  - Premature compaction costs +32% (13 messages) and +143% (25 messages).
+  - After about 9 compactions, cross-compaction recall falls from 11.7 to 9.7 of 12.
+  - The economic trigger correctly stays idle below H\*.
+  - The cost model reproduces real bills at 7.9% mean absolute error.
+- **Not established:** that the economic trigger *saves* money in real runs, because no pilot session grew past H\* (about 60k of history).
+- **Next experiment:** high-growth sessions in which the agent reads whole files (g of 4k or more per call), comparing `auto` with `eoq`. Expect about $3–5 per run.
+- **Remaining plan:** the SWE-bench design below is still the path to a full-paper result.
+
 The simulator shows that compacting by break-even is cheaper than window-relative triggers, and that it holds up when conditions change. It cannot show that early compaction **keeps task success intact**. The cheapest schedules compact about 4 times per session, while a 92% trigger compacts about once. This plan tests that with a real agent and real API bills.
 
 ## Research questions

@@ -1,20 +1,20 @@
 
 1h TTL, Claude Code (0.05x read, 1h 2x write), 200k window (vs fixed 92% without the rule)
-  fixed 92% of window              +0.0%  -> with cold-cache rule   -1.7%
-  ski-rental break-even            -5.2%  -> with cold-cache rule   -5.5%
-  closed-form EOQ (online g)       -6.6%  -> with cold-cache rule   -6.7%
+  fixed 92% of window              +0.0%  -> with cold-cache rule   -0.6%
+  ski-rental break-even            -0.8%  -> with cold-cache rule   -0.9%
+  steady-state optimum (online g)   -1.2%  -> with cold-cache rule   -1.2%
 
 1h TTL, Claude Code (0.05x read, 1h 2x write), 1000k window (vs fixed 92% without the rule)
-  fixed 92% of window              +0.0%  -> with cold-cache rule  -17.2%
-  ski-rental break-even           -31.8%  -> with cold-cache rule  -32.1%
-  closed-form EOQ (online g)      -33.4%  -> with cold-cache rule  -33.5%
+  fixed 92% of window              +0.0%  -> with cold-cache rule  -16.3%
+  ski-rental break-even           -29.1%  -> with cold-cache rule  -29.3%
+  steady-state optimum (online g)  -29.7%  -> with cold-cache rule  -29.7%
 
 5m TTL, cached (5.5-gen 0.05x read), 200k window (vs fixed 92% without the rule)
   fixed 92% of window              +0.0%  -> with cold-cache rule   +0.0%
-  ski-rental break-even            -9.7%  -> with cold-cache rule   -9.7%
-  closed-form EOQ (online g)      -11.0%  -> with cold-cache rule  -11.0%
+  ski-rental break-even            -2.3%  -> with cold-cache rule   -2.3%
+  steady-state optimum (online g)   -2.5%  -> with cold-cache rule   -2.5%
 
 5m TTL, cached (5.5-gen 0.05x read), 1000k window (vs fixed 92% without the rule)
-  fixed 92% of window              +0.0%  -> with cold-cache rule   +0.0%
-  ski-rental break-even           -41.2%  -> with cold-cache rule  -41.2%
-  closed-form EOQ (online g)      -42.7%  -> with cold-cache rule  -42.7%
+  fixed 92% of window              +0.0%  -> with cold-cache rule  -11.4%
+  ski-rental break-even           -36.2%  -> with cold-cache rule  -36.2%
+  steady-state optimum (online g)  -36.7%  -> with cold-cache rule  -36.7%
