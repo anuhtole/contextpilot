@@ -61,7 +61,7 @@ This is the Economic Order Quantity (Harris, 1913) with ordering cost `A` and ho
 - **H\* does not depend on the context window `W`.**
 - H\* scales as `sqrt(g)` and as `1/sqrt(h)`. Cheaper cache reads make later compaction optimal, but only by the square root: halving `r` raises H\* by √2.
 
-The fixed point is solved numerically because `σ` and `s` depend on `H`; see `sim.eoq_history`. With Claude Code prices (`r = 0.05`, `w = 2`, `o = 5`), `S = 40k` and `ρ = 0.1`:
+The fixed point is solved numerically because `σ` and `s` depend on `H`; see `sim.eoq_history`. When the summary size grows with `H`, the square-root form overstates H\*. `sim.steady_state_optimum` minimizes the exact steady-state cost per call instead, and that is what the online policy uses: it lands within 0.4% of the best threshold tuned in hindsight in every setting (`results/closed_form.txt`). With Claude Code prices (`r = 0.05`, `w = 2`, `o = 5`), `S = 40k` and `ρ = 0.1`:
 
 | Growth `g` (tokens/call) | H\* |
 |---|---|

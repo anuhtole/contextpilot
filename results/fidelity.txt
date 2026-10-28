@@ -1,0 +1,20 @@
+run               actual $ predicted $   error compactions
+v1-auto-r1           0.569       0.531   -6.7%           0
+v1-eoq-r1            0.569       0.532   -6.7%           0
+v1-early-r1          0.732       0.796   +8.7%           2
+v2-auto-r1           0.523       0.503   -3.7%           0
+v2-eoq-r1            0.521       0.516   -0.9%           0
+v2-early-r1          0.706       0.765   +8.4%           2
+v3-auto-r1           0.558       0.533   -4.5%           0
+v3-eoq-r1            0.587       0.549   -6.4%           0
+v3-early-r1          0.744       0.795   +6.8%           2
+v1L-eoq-r1           0.945       0.816  -13.7%           0
+v1L-auto-r1          1.128       0.952  -15.6%           0
+v1L-early-r1         1.825       1.857   +1.8%           6
+v2L-auto-r1          0.952       0.824  -13.5%           0
+v2L-eoq-r1           0.981       0.841  -14.3%           0
+v2L-early-r1         2.269       2.325   +2.5%           9
+v3L-auto-r1          0.831       0.749   -9.9%           0
+v3L-eoq-r1           1.025       0.865  -15.7%           0
+v3L-early-r1         2.970       3.037   +2.2%          13
+mean absolute error 7.9% over 18 runs

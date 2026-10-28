@@ -6,3 +6,11 @@ window 200k, Claude Code prices: cost / offline optimum over all prefixes
   steady-state optimum (online g)    max 1.195   p99 1.102   mean 1.022
   fixed 30k history                  max 1.206   p99 1.134   mean 1.030
   fixed 92% of window                max 1.293   p99 1.220   mean 1.055
+
+window 1000k, Claude Code prices: cost / offline optimum over all prefixes
+  fixed 80k history                  max 1.159   p99 1.119   mean 1.034
+  ski-rental break-even              max 1.176   p99 1.163   mean 1.044
+  steady-state optimum (online g)    max 1.195   p99 1.102   mean 1.022
+  fixed 30k history                  max 1.206   p99 1.134   mean 1.030
+  ski-rental randomized              max 1.219   p99 1.141   mean 1.041
+  fixed 92% of window                max 1.636   p99 1.553   mean 1.096

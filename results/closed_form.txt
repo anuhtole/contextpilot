@@ -11,3 +11,7 @@ SWE-agent (n=1500) | cached | 32k                          g=  491  EOQ=   7.0k 
 SWE-agent (n=1500) | cached (5.5-gen 0.05x read) | 32k     g=  491  EOQ=   9.7k  H*=   8.6k  best=  10.8k  closed-form vs best  +0.1%  | vs fixed-92%: BE   -5.4%  CF-online   -5.9%  best   -4.9%  opt   -8.8%
 SWE-agent (n=1500) | Claude Code (0.05x read, 1h 2x write) | 32k g=  491  EOQ=  10.6k  H*=   9.1k  best=   9.1k  closed-form vs best  +0.0%  | vs fixed-92%: BE   -3.1%  CF-online   -3.3%  best   -2.5%  opt   -6.4%
 SWE-agent (n=1500) | uncached | 128k                       g=  491  EOQ=   2.9k  H*=   2.6k  best=   2.6k  closed-form vs best  +0.0%  | vs fixed-92%: BE  -56.0%  CF-online  -56.3%  best  -56.2%  opt  -58.1%
+SWE-agent (n=1500) | cached | 128k                         g=  491  EOQ=   7.0k  H*=   6.3k  best=   7.9k  closed-form vs best  +0.3%  | vs fixed-92%: BE  -15.3%  CF-online  -15.5%  best  -14.5%  opt  -18.1%
+SWE-agent (n=1500) | cached (5.5-gen 0.05x read) | 128k    g=  491  EOQ=   9.7k  H*=   8.6k  best=  10.8k  closed-form vs best  +0.1%  | vs fixed-92%: BE   -4.8%  CF-online   -5.2%  best   -4.2%  opt   -8.1%
+SWE-agent (n=1500) | Claude Code (0.05x read, 1h 2x write) | 128k g=  491  EOQ=  10.6k  H*=   9.1k  best=   9.1k  closed-form vs best  +0.0%  | vs fixed-92%: BE   -2.4%  CF-online   -2.5%  best   -1.8%  opt   -5.7%
+real-trace replay (25) | Claude Code prices | 1000k        g= 3666  EOQ=  82.9k  H*=  40.1k  best=  40.1k  closed-form vs best  +0.0%  | vs fixed-92%: BE  -24.6%  CF-online  -27.9%  best  -27.8%  opt  -29.7%

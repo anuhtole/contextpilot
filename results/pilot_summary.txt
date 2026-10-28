@@ -1,0 +1,8 @@
+session arm     n         cost $  vs auto fixed/12 recall/12 untagged new files compactions  peak ctx
+short  auto    3    0.550±0.020    +0.0%     12.0      12.0      0.0       0.0         0.0     65.8k
+short  eoq     3    0.559±0.028    +1.7%     12.0      11.3      0.0       0.0         0.0     66.4k
+short  early   3    0.727±0.016   +32.3%     12.0      12.0      0.0       0.0         2.0     53.4k
+long   auto    3    0.970±0.122    +0.0%     12.0      11.7      0.0       0.0         0.0     85.0k
+long   eoq     3    0.984±0.033    +1.4%     12.0      12.0      0.0       0.0         0.0     87.2k
+long   early   3    2.355±0.471  +142.7%     12.0       9.7      0.3       0.0         9.3     54.8k
+total pilot spend in ledger: $18.43
