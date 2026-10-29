@@ -1,6 +1,6 @@
 """Run headless Claude Code on a pilot workspace under one compaction trigger and score it.
 
-usage: python3 run_pilot.py <variant v1|v2|v3|v1L|v2L|v3L> <arm auto|eoq|early> <rep> [budget_cap_usd]
+usage: python3 run_pilot.py <variant v1|v2|v3|v1L|v2L|v3L|h1..h5> <arm auto|eoq|early|150k> <rep> [cap_usd] [max_msgs]
 
 The harness is never allowed to auto-compact below its window (Claude Code's floor is
 100k). Instead this driver acts as an external controller: between user turns it
@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from build import build  # noqa: E402
+from build import LARGE_BUGS, build, is_high_growth, messages_path  # noqa: E402
 from contextpilot import sim  # noqa: E402
 from score import score  # noqa: E402
 
@@ -24,11 +24,13 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "results" / "pilot"
 WORK = Path(os.environ.get("PILOT_WORKDIR", "/tmp/contextpilot-pilot"))
 LEDGER = OUT / "ledger.jsonl"
-PER_RUN_CAP_USD = 3.0
-TIMEOUT_S = 60 * 60
+PER_RUN_CAP_USD = 10.0
+TIMEOUT_S = 90 * 60
 TOOLS = "Read Edit Write Glob Grep Bash"
 EARLY_HISTORY = 15_000   # aggressive arm: compact whenever history passes this
 SUMMARY_TOKENS = 11_000  # post-compaction conversation size observed in pilot rep 1
+NATIVE_AUTOCOMPACT = {"native150k": "150000"}  # CLI's own trigger; measured to fire at 69-85k total context
+CONTEXT_TRIGGERS = {"150k": 150_000}  # external trigger on total context (the compaction API's default)
 
 
 class Controller:
@@ -50,6 +52,8 @@ class Controller:
     def threshold(self):
         if self.arm == "early":
             return EARLY_HISTORY
+        if self.arm in CONTEXT_TRIGGERS:
+            return CONTEXT_TRIGGERS[self.arm] - self.base
         g = sum(self.growth) / len(self.growth) if self.growth else 2_000.0
         # Claude Code's compaction leaves ~10-13k tokens (measured in the pilot)
         env = sim.Env(system=self.base or 30_000, prices=sim.CLAUDE_CODE,
@@ -57,17 +61,22 @@ class Controller:
         return sim.steady_state_optimum(env, g)
 
     def should_compact(self):
-        if self.arm == "auto" or self.ctx is None:
+        if self.arm == "auto" or self.arm in NATIVE_AUTOCOMPACT or self.ctx is None:
             return False
         return self.ctx - self.base >= self.threshold()
 # Bash is auto-allowed only inside Claude Code's OS sandbox (writes confined to the workspace).
 SANDBOX = json.dumps({"sandbox": {"enabled": True, "autoAllowBashIfSandboxed": True}})
 
 
-def spent():
-    if not LEDGER.exists():
+def out_dir(variant):
+    """High-growth runs keep their own ledger, so their budget cap counts only their own spend."""
+    return ROOT / "results" / "highgrowth" if is_high_growth(variant) else OUT
+
+
+def spent(ledger=LEDGER):
+    if not ledger.exists():
         return 0.0
-    return sum(json.loads(l).get("cost_usd") or 0.0 for l in LEDGER.read_text().splitlines() if l.strip())
+    return sum(json.loads(l).get("cost_usd") or 0.0 for l in ledger.read_text().splitlines() if l.strip())
 
 
 def drive(cmd, ws, env, msgs, stream, controller):
@@ -116,16 +125,23 @@ def drive(cmd, ws, env, msgs, stream, controller):
         return "killed", events
 
 
-def run(variant, arm, rep, cap):
-    if spent() >= cap:
-        sys.exit(f"budget cap reached: ${spent():.2f} >= ${cap}")
-    tag = f"{variant}-{arm}-r{rep}"
+def run(variant, arm, rep, cap, max_msgs=None):
+    out = out_dir(variant)
+    ledger = out / "ledger.jsonl"
+    if spent(ledger) >= cap:
+        sys.exit(f"budget cap reached: ${spent(ledger):.2f} >= ${cap}")
+    tag = f"{variant}-{arm}-r{rep}" + (f"-cal{max_msgs}" if max_msgs else "")
     ws = build(WORK / tag, variant)
-    stream = OUT / f"{tag}.jsonl"
-    OUT.mkdir(parents=True, exist_ok=True)
-    msgs = json.loads((ws / "MESSAGES.json").read_text())
+    out.mkdir(parents=True, exist_ok=True)
+    stream = out / f"{tag}.jsonl"
+    msgs = json.loads(messages_path(ws, variant).read_text())
+    if max_msgs:  # calibration: opening rules, then the high-growth tail (large bugs, audits), then NOTES.md
+        half = (max_msgs - 2) // 2
+        n_large = len(LARGE_BUGS)
+        large, audit = msgs[-1 - 2 * n_large:-1 - n_large], msgs[-1 - n_large:-1]
+        msgs = [msgs[0], *large[:half], *audit[:max_msgs - 2 - half], msgs[-1]]
     cmd = ["claude", "-p", "--input-format", "stream-json", "--model", "sonnet",
-           "--autocompact", "auto", "--setting-sources", "project", "--strict-mcp-config",
+           "--autocompact", NATIVE_AUTOCOMPACT.get(arm, "auto"), "--setting-sources", "project", "--strict-mcp-config",
            "--no-session-persistence", "--output-format", "stream-json", "--verbose",
            "--permission-mode", "dontAsk", "--allowedTools", TOOLS,
            "--settings", SANDBOX, "--max-budget-usd", str(PER_RUN_CAP_USD)]
@@ -133,8 +149,8 @@ def run(variant, arm, rep, cap):
     start = time.time()
     status, compactions = drive(cmd, ws, env, msgs, stream, Controller(arm))
     row = {"tag": tag, "variant": variant, "arm": arm, "rep": rep, "status": status,
-           "seconds": round(time.time() - start), "compaction_events": compactions, **score(ws, stream)}
-    with open(LEDGER, "a") as fh:
+           "seconds": round(time.time() - start), "compaction_events": compactions, **score(ws, stream, variant=variant)}
+    with open(ledger, "a") as fh:
         fh.write(json.dumps(row) + "\n")
     return row
 
@@ -142,4 +158,5 @@ def run(variant, arm, rep, cap):
 if __name__ == "__main__":
     v, a, r = sys.argv[1], sys.argv[2], int(sys.argv[3])
     cap = float(sys.argv[4]) if len(sys.argv) > 4 else 25.0
-    print(json.dumps(run(v, a, r, cap)))
+    max_msgs = int(sys.argv[5]) if len(sys.argv) > 5 else None
+    print(json.dumps(run(v, a, r, cap, max_msgs)))

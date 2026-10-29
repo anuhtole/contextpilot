@@ -6,6 +6,7 @@ way it does in a real long interactive coding session. Hidden differential tests
 (score.py) compare each fixed module against the untouched original.
 """
 import json
+import random
 import shutil
 import sys
 import sysconfig
@@ -51,6 +52,35 @@ BUGS = {
 
 SOURCES = {"html": "html/__init__.py"}
 
+# High-growth variant: eight large pure-Python modules (1.4-3.3k lines), one bug each, reported by
+# symptom only, plus an end-to-end audit of each module, so the agent reads whole files.
+LARGE_BUGS = {
+    "argparse": (1053, "items.append(values)", "items = [values]",
+                 "an option declared with action='append' keeps only the last value when given several times.",
+                 "_AppendAction"),
+    "pathlib": (639, "if 0 < i < len(name) - 1:", "if 0 <= i < len(name) - 1:",
+                "PurePath.suffix reports a suffix for hidden dotfiles such as '.bashrc'.", "suffix"),
+    "configparser": (609, "'0': False, 'no': False, 'false': False, 'off': False}",
+                     "'0': False, 'no': False, 'false': False, 'off': True}",
+                     "ConfigParser.getboolean() returns the wrong value for one of the documented false spellings.",
+                     "BOOLEAN_STATES"),
+    "inspect": (879, "margin = min(margin, indent)", "margin = min(margin, indent + 1)",
+                "inspect.cleandoc() sometimes chops the first character off docstring lines.", "cleandoc"),
+    "ast": (108, "return left - right", "return left + right",
+            "ast.literal_eval() mis-evaluates some complex-number literals.", "literal_eval"),
+    "dataclasses": (1065, "for name, op in [('__lt__', '<'),", "for name, op in [('__lt__', '<='),",
+                    "with order=True, `a < b` is True for some pairs of equal instances.", "_process_class"),
+    "tarfile": (1130, 'itn(info.get("mtime", 0), 12, format),', 'itn(info.get("mtime", 0) - 3600, 12, format),',
+                "member modification times are wrong after writing an archive and reading it back.",
+                "_create_header"),
+    "optparse": (413, "radix = 8", "radix = 10",
+                 "options with type='int' parse values with a leading zero (such as 017) incorrectly.", "_parse_num"),
+}
+LAST_TOPLEVEL = {"argparse": "ArgumentParser", "pathlib": "WindowsPath", "configparser": "ConverterMapping",
+                 "inspect": "_main", "ast": "main", "dataclasses": "replace", "tarfile": "main",
+                 "optparse": "_match_abbrev"}
+RULE5_TOKEN = "CPB-5"
+
 ORDERS = {
     "v1": ["calendar", "difflib", "shlex", "statistics", "html", "ipaddress",
            "colorsys", "fractions", "pprint", "textwrap", "string", "fnmatch"],
@@ -87,6 +117,55 @@ def messages(order, long=False):
     return [first, *rest, *followups, final]
 
 
+RULE5 = (f"One more ground rule, effective now for the rest of the session: 5. Every file you create in "
+         f"scratch/ from now on must have the token {RULE5_TOKEN} on its first line.")
+AUDIT = ("Next request: audit pkg/{m}.py end to end. Read the entire file, every line (do not rely on grep), "
+         "then write scratch/audit_{m}.md with (a) the file's exact line count, (b) the name of the last "
+         "top-level function or class defined in it, and (c) three spots you consider fragile, with line numbers.")
+
+
+def is_high_growth(variant):
+    return variant.startswith("h")
+
+
+def high_growth_order(variant):
+    """Seeded orderings h1-h5 of the small bugs, the large bugs, and the audits."""
+    rng = random.Random(int(variant[1:]))
+    small, large, audits = list(BUGS), list(LARGE_BUGS), list(LARGE_BUGS)
+    for xs in (small, large, audits):
+        rng.shuffle(xs)
+    return small, large, audits
+
+
+def high_growth_messages(variant):
+    """Small bugs (rule 5 arrives after the ninth), then large bugs, audits, and NOTES.md."""
+    small, large, audits = high_growth_order(variant)
+    msgs = messages(small)[:-1]
+    msgs[0] = msgs[0].replace(f"{len(BUGS)} Python modules", f"{len(BUGS) + len(LARGE_BUGS)} Python modules")
+    msgs.insert(9, RULE5)
+    msgs += [f"Next report: pkg/{m}.py: {LARGE_BUGS[m][3]}" for m in large]
+    msgs += [AUDIT.format(m=m) for m in audits]
+    return [*msgs, "That's all for today. Now write NOTES.md as required by rule 4."]
+
+
+def _write_mutated(dest, mod, bug):
+    lineno, orig, mutated = bug[:3]
+    lines = (STDLIB / SOURCES.get(mod, f"{mod}.py")).read_text().splitlines(keepends=True)
+    assert lines[lineno - 1].strip() == orig, (mod, lines[lineno - 1])
+    lines[lineno - 1] = lines[lineno - 1].replace(orig, mutated)
+    (dest / "pkg" / f"{mod}.py").write_text("".join(lines))
+
+
+def bugs_for(variant):
+    return {**BUGS, **LARGE_BUGS} if is_high_growth(variant) else BUGS
+
+
+def messages_path(dest, variant):
+    """High-growth variants keep the script outside the workspace so the agent cannot read ahead."""
+    dest = Path(dest)
+    return dest.parent / f"{dest.name}.messages.json" if is_high_growth(variant) else dest / "MESSAGES.json"
+
+
 def build(dest, variant):
     dest = Path(dest)
     if dest.exists():
@@ -94,13 +173,13 @@ def build(dest, variant):
     (dest / "pkg").mkdir(parents=True)
     (dest / "scratch").mkdir()
     (dest / "pkg" / "__init__.py").write_text("")
-    for mod, (lineno, orig, mutated, _, _) in BUGS.items():
-        lines = (STDLIB / SOURCES.get(mod, f"{mod}.py")).read_text().splitlines(keepends=True)
-        assert lines[lineno - 1].strip() == orig, (mod, lines[lineno - 1])
-        lines[lineno - 1] = lines[lineno - 1].replace(orig, mutated)
-        (dest / "pkg" / f"{mod}.py").write_text("".join(lines))
-    long = variant.endswith("L")
-    (dest / "MESSAGES.json").write_text(json.dumps(messages(ORDERS[variant.rstrip("L")], long=long)))
+    for mod, bug in bugs_for(variant).items():
+        _write_mutated(dest, mod, bug)
+    if is_high_growth(variant):
+        msgs = high_growth_messages(variant)
+    else:
+        msgs = messages(ORDERS[variant.rstrip("L")], long=variant.endswith("L"))
+    messages_path(dest, variant).write_text(json.dumps(msgs))
     return dest
 
 

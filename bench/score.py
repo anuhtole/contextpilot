@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-from build import BUGS, SOURCES, STDLIB
+from build import BUGS, LARGE_BUGS, LAST_TOPLEVEL, RULE5_TOKEN, SOURCES, STDLIB, bugs_for
 
 STDLIB_PEEK = re.compile(r"lib/python3|inspect\.getsource|sysconfig\.get_paths")
 
@@ -15,6 +15,7 @@ STDLIB_PEEK = re.compile(r"lib/python3|inspect\.getsource|sysconfig\.get_paths")
 def load(path, name):
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod  # dataclasses looks itself up in sys.modules
     spec.loader.exec_module(mod)
     return mod
 
@@ -45,7 +46,55 @@ PROBES = {
     "html": lambda m, r: m.escape(_text(r, "a<>&'\" ", 20)),
     "fnmatch": lambda m, r: m.fnmatchcase(_text(r, "ab", 4), _text(r, "ab?*", 4)),
     "pprint": lambda m, r: m.pformat(_nested(r), width=r.randint(10, 60)),
+    "argparse": lambda m, r: _argparse_probe(m, r),
+    "pathlib": lambda m, r: m.PurePosixPath(_text(r, "ab.", 6) or "a").suffix,
+    "configparser": lambda m, r: _configparser_probe(m, r),
+    "inspect": lambda m, r: m.cleandoc("\n".join(" " * r.randint(0, 6) + _text(r, "ab ", 8) for _ in range(r.randint(1, 6)))),
+    "ast": lambda m, r: m.literal_eval(f"{r.randint(-9, 9)}{r.choice('+-')}{r.randint(0, 9)}j"),
+    "dataclasses": lambda m, r: _dataclass_probe(m, r),
+    "tarfile": lambda m, r: _tarfile_probe(m, r),
+    "optparse": lambda m, r: _optparse_probe(m, r),
 }
+
+
+def _argparse_probe(m, r):
+    parser = m.ArgumentParser(prog="p", exit_on_error=False)
+    parser.add_argument("-x", action="append")
+    return parser.parse_args(sum((["-x", str(r.randint(0, 9))] for _ in range(r.randint(0, 4))), [])).x
+
+
+def _configparser_probe(m, r):
+    cp = m.ConfigParser()
+    word = r.choice(["1", "yes", "true", "on", "0", "no", "false", "off"])
+    cp.read_string(f"[s]\nk = {word}\n")
+    return cp.getboolean("s", "k")
+
+
+def _dataclass_probe(m, r):
+    cls = m.make_dataclass("P", ["x", "y"], order=True)
+    a, b = cls(r.randint(0, 2), r.randint(0, 2)), cls(r.randint(0, 2), r.randint(0, 2))
+    return (a < b, a <= b, a > b, a >= b)
+
+
+def _tarfile_probe(m, r):
+    import io
+    buf, data = io.BytesIO(), b"x" * r.randint(0, 50)
+    info = m.TarInfo("f.txt")
+    info.size, info.mtime = len(data), r.randint(10 ** 6, 2 * 10 ** 9)
+    with m.open(fileobj=buf, mode="w") as tf:
+        tf.addfile(info, io.BytesIO(data))
+    buf.seek(0)
+    with m.open(fileobj=buf, mode="r") as tf:
+        member = tf.getmembers()[0]
+        return member.mtime, member.size
+
+
+def _optparse_probe(m, r):
+    parser = m.OptionParser()
+    parser.add_option("-n", type="int")
+    val = r.choice(["0" + "".join(r.choice("01234567") for _ in range(r.randint(1, 3))),
+                    str(r.randint(0, 999)), hex(r.randint(0, 999)), bin(r.randint(0, 99))])
+    return parser.parse_args(["-n", val])[0].n
 
 
 def check(mod_name, fixed, orig, seed, trials=300):
@@ -62,7 +111,7 @@ def _norm(text):
 
 def recall(notes, mod_name):
     """(function named next to the module, buggy expression reproduced) for one module."""
-    _, _, mutated, _, func = BUGS[mod_name]
+    _, _, mutated, _, func = {**BUGS, **LARGE_BUGS}[mod_name]
     lines = [l for l in notes.splitlines() if mod_name in l or func in l]
     expr_variants = {_norm(mutated), _norm(mutated.split("=", 1)[-1]), _norm(mutated.replace("return", "", 1))}
     blob = _norm(notes)
@@ -106,10 +155,34 @@ def usage(stream_path):
             "c3_stdlib_peek": sum(bool(STDLIB_PEEK.search(t)) for t in tool_inputs)}
 
 
-def score(workspace, stream_path, seed=0):
+def audits(ws):
+    """Per audited module: (audit file exists, line count right within 2, last top-level name right,
+    rule-5 token on the first line). Only high-growth runs request audits."""
+    out = {}
+    for m in LARGE_BUGS:
+        path = ws / "scratch" / f"audit_{m}.md"
+        if not path.exists():
+            out[m] = (False, False, False, False)
+            continue
+        text = path.read_text()
+        n_lines = len((ws / "pkg" / f"{m}.py").read_text().splitlines())
+        counts = [int(x) for x in re.findall(r"\b\d{3,5}\b", text.replace(",", ""))]
+        out[m] = (True, any(abs(c - n_lines) <= 2 for c in counts), LAST_TOPLEVEL[m] in text,
+                  RULE5_TOKEN in (text.splitlines() or [""])[0])
+    return out
+
+
+def rule5_violations(ws):
+    """scratch/ files without the rule-5 token; only audit files are certain to postdate rule 5."""
+    return sum(RULE5_TOKEN not in (p.read_text(errors="ignore").splitlines() or [""])[0]
+               for p in (ws / "scratch").glob("audit_*.md"))
+
+
+def score(workspace, stream_path, seed=0, variant="v1"):
     ws = Path(workspace)
+    bugs = bugs_for(variant)
     fixed = {}
-    for mod_name in BUGS:
+    for mod_name in bugs:
         try:
             mod = load(ws / "pkg" / f"{mod_name}.py", f"ws_{mod_name}")
             fixed[mod_name] = check(mod_name, mod, importlib.import_module(mod_name), seed)
@@ -117,19 +190,25 @@ def score(workspace, stream_path, seed=0):
             fixed[mod_name] = False
     notes_path = ws / "NOTES.md"
     notes = notes_path.read_text() if notes_path.exists() else ""
-    rec = {m: recall(notes, m) for m in BUGS if fixed[m]}
-    expected_files = {"__init__.py", *(f"{m}.py" for m in BUGS)}
+    rec = {m: recall(notes, m) for m in bugs if fixed[m]}
+    expected_files = {"__init__.py", *(f"{m}.py" for m in bugs)}
+    extra = {}
+    if bugs is not BUGS:
+        a = audits(ws)
+        extra = {"audits_written": sum(x[0] for x in a.values()), "audit_linecount_ok": sum(x[1] for x in a.values()),
+                 "audit_lastdef_ok": sum(x[2] for x in a.values()), "c5_rule5_violations": rule5_violations(ws)}
     return {
         "fixed": fixed,
         "n_fixed": sum(fixed.values()),
-        "c1_untagged_lines": sum(untagged_changes(ws / "pkg" / f"{m}.py", m) for m in BUGS),
+        "c1_untagged_lines": sum(untagged_changes(ws / "pkg" / f"{m}.py", m) for m in bugs),
         "c2_new_files": len({p.name for p in (ws / "pkg").iterdir() if p.is_file()} - expected_files),
         "notes_written": bool(notes),
         "recall_function": sum(f for f, _ in rec.values()),
         "recall_expression": sum(e for _, e in rec.values()),
+        **extra,
         **usage(stream_path),
     }
 
 
 if __name__ == "__main__":
-    print(json.dumps(score(sys.argv[1], sys.argv[2]), indent=2))
+    print(json.dumps(score(sys.argv[1], sys.argv[2], variant=sys.argv[3] if len(sys.argv) > 3 else "v1"), indent=2))
