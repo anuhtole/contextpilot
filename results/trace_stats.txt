@@ -1,0 +1,6 @@
+sessions 25, calls 1490, increments 1465
+mean growth 3779 tokens/call; median session 36 calls
+input tokens served from cache: 94.7%
+calls by model: {'claude-fable-5-1': 560, 'claude-opus-5-5': 556, 'claude-sonnet-5-5': 246, 'claude-fable-5': 119, '<synthetic>': 8, 'claude-opus-5': 1}
+sessions by source: {'main': 13, 'subagent': 12}
+re-fetch rho: pilot early arm 0.007 (168k dropped), high-growth compactions 0.007 (2314k dropped), pooled 0.007

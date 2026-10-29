@@ -1,7 +1,17 @@
-v1-early-r1      compactions  2  dropped   83.0k  re-fetched   0.0k  rho 0.000
-v1L-early-r1     compactions  6  dropped  260.6k  re-fetched   0.1k  rho 0.001
-v2-early-r1      compactions  2  dropped   79.1k  re-fetched   0.0k  rho 0.000
-v2L-early-r1     compactions  9  dropped  367.6k  re-fetched   0.3k  rho 0.001
-v3-early-r1      compactions  2  dropped   80.9k  re-fetched   0.0k  rho 0.000
-v3L-early-r1     compactions 13  dropped  520.4k  re-fetched   0.8k  rho 0.002
-pooled rho = 0.001
+v1-early-r1      compactions  2  dropped   11.0k  re-fetched   0.0k  rho 0.000
+v1L-early-r1     compactions  6  dropped   44.6k  re-fetched   0.1k  rho 0.003
+v2-early-r1      compactions  2  dropped    7.1k  re-fetched   0.0k  rho 0.000
+v2L-early-r1     compactions  9  dropped   43.6k  re-fetched   0.3k  rho 0.006
+v3-early-r1      compactions  2  dropped    8.9k  re-fetched   0.0k  rho 0.000
+v3L-early-r1     compactions 13  dropped   52.3k  re-fetched   0.8k  rho 0.015
+h1-eoq-r1        compactions  3  dropped  254.9k  re-fetched   0.0k  rho 0.000
+h2-eoq-r1        compactions  3  dropped  262.3k  re-fetched   0.0k  rho 0.000
+h3-eoq-r1        compactions  3  dropped  279.9k  re-fetched  17.0k  rho 0.061
+h4-eoq-r1        compactions  2  dropped  183.6k  re-fetched  50.2k  rho 0.273
+h5-eoq-r1        compactions  3  dropped  259.8k  re-fetched   0.0k  rho 0.000
+h1-150k-r1       compactions  2  dropped  266.4k  re-fetched   0.0k  rho 0.000
+h2-150k-r1       compactions  2  dropped  246.5k  re-fetched   0.0k  rho 0.000
+h3-150k-r1       compactions  2  dropped  286.0k  re-fetched   0.0k  rho 0.000
+h4-150k-r1       compactions  2  dropped  223.0k  re-fetched   0.0k  rho 0.000
+h5-150k-r1       compactions  2  dropped  235.0k  re-fetched   0.0k  rho 0.000
+pooled rho = 0.026

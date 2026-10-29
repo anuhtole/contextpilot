@@ -2,11 +2,13 @@
 \toprule
 Policy (Claude Code prices) & max, 200k & max, 1M & p99, 1M & mean, 1M\\
 \midrule
-ski-rental break-even & 1.151 & 1.151 & 1.107 & 1.013\\
-steady-state optimum (online g) & 1.152 & 1.152 & 1.123 & 1.019\\
-fixed 80k history & 1.260 & 1.260 & 1.175 & 1.041\\
-fixed 92\% of window & 1.179 & 1.497 & 1.432 & 1.061\\
-ski-rental randomized & 1.511 & 1.542 & 1.218 & 1.035\\
-fixed 30k history & 1.797 & 1.797 & 1.674 & 1.287\\
+online steady-state & 1.140 & 1.140 & 1.123 & 1.020\\
+break-even & 1.146 & 1.146 & 1.115 & 1.013\\
+online, recent $g$ (exploratory) & 1.155 & 1.155 & 1.117 & 1.014\\
+online, recent $g$ + horizon gate & 1.155 & 1.155 & 1.117 & 1.014\\
+fixed 80k history & 1.220 & 1.220 & 1.143 & 1.031\\
+randomized break-even & 2.054 & 1.430 & 1.203 & 1.033\\
+fixed 92\% of window & 1.181 & 1.520 & 1.456 & 1.068\\
+fixed 30k history & 1.658 & 1.658 & 1.569 & 1.236\\
 \bottomrule
 \end{tabular}

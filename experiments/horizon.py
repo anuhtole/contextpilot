@@ -5,7 +5,8 @@ Every horizon predictor is fit out of sample:
   - synthetic and SWE-agent sessions: lengths from a disjoint training draw;
   - the high-growth real runs: lengths of the 25 local sessions only (a transfer test).
 "oracle" knows the true remaining length and bounds the value of horizon information.
-Costs are reported relative to a fixed 92%-of-window trigger, as in the paper's Table 1."""
+Costs are reported relative to a fixed 92%-of-window trigger, as in the paper's Table 1.
+Stress-test ratios for these rules are in worst_case.py, on the same sessions as the other policies."""
 import json
 import sys
 from pathlib import Path
@@ -18,7 +19,6 @@ from contextpilot import sim  # noqa: E402
 from closed_form import GRID, swe_agent  # noqa: E402
 from fidelity import calls_of  # noqa: E402
 from main_tables import SEQS, synth_sessions  # noqa: E402
-from worst_case import adversarial_sessions  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 HG = ROOT / "results" / "highgrowth"
@@ -87,28 +87,6 @@ def high_growth_sessions():
     return out
 
 
-def worst_case(env, n=60):
-    """Cost / offline optimum over every prefix of adversarial sessions, with no length data:
-    the empirical predictor falls back to Lindy (t + 1) everywhere."""
-    lindy = sim.empirical_residual([])
-    pols = {"steady-state": lambda: sim.ClosedForm(), "break-even": lambda: sim.BreakEven(),
-            "horizon-gated, recent g (Lindy)": lambda: sim.HorizonGated(sim.ClosedFormRecent(HALF_LIFE), lindy, LAM),
-            "horizon-gated (Lindy)": lambda: sim.HorizonGated(sim.ClosedForm(), lindy, LAM)}
-    ratios = {k: [] for k in pols}
-    for g in adversarial_sessions(n, np.random.default_rng(5)):
-        for T in range(5, len(g) + 1, 5):
-            prefix = g[:T]
-            opt = sim.hindsight_optimum(env, prefix, beam=8)
-            for k, make in pols.items():
-                ratios[k].append(sim.run(env, prefix, make())[0] / opt)
-    res = {k: {"max": float(np.max(v)), "p99": float(np.percentile(v, 99)), "mean": float(np.mean(v))}
-           for k, v in ratios.items()}
-    print(f"\n## worst case, {n} adversarial sessions, every prefix ({env.window // 1000}k, Claude Code prices)")
-    for k, r in sorted(res.items(), key=lambda kv: kv[1]["max"]):
-        print(f"  {k:34s} max {r['max']:.3f}  p99 {r['p99']:.3f}  mean {r['mean']:.3f}", flush=True)
-    return res
-
-
 def main():
     out = {"rows": []}
     seq_lengths = [len(q) for q in SEQS]
@@ -129,7 +107,6 @@ def main():
     swe_env = sim.Env(system=int(system), out_per_call=int(out_tok), sigma_min=SWE_ENV_SIGMA, sigma_max=SWE_ENV_SIGMA,
                       window=128_000, prices=sim.CLAUDE_CODE)
     out["rows"].append(evaluate(swe_env, swe_test, lambda i: swe_train, "SWE-agent (1500), 128k, Claude Code prices"))
-    out["worst_case_1M"] = worst_case(sim.Env(system=30_000, out_per_call=1_000, window=1_000_000, prices=sim.CLAUDE_CODE))
     (ROOT / "results" / "horizon.json").write_text(json.dumps(out, indent=1))
 
 

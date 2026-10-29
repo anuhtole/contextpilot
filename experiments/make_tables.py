@@ -33,6 +33,12 @@ def main_table():
     return worst_gap
 
 
+SHORT = {"steady-state optimum (online g)": "online steady-state",
+         "steady-state optimum (recent g, half-life 10)": "online, recent $g$ (exploratory)",
+         "steady-state optimum (recent g, half-life 10) + horizon gate (Lindy, lam=0.5)": "online, recent $g$ + horizon gate",
+         "ski-rental break-even": "break-even", "ski-rental randomized": "randomized break-even"}
+
+
 def worst_table():
     res = json.loads((ROOT / "results" / "worst_case.json").read_text())
     names = sorted(res["1000k"], key=lambda k: res["1000k"][k]["max"])
@@ -40,7 +46,8 @@ def worst_table():
              r"Policy (Claude Code prices) & max, 200k & max, 1M & p99, 1M & mean, 1M\\", r"\midrule"]
     for n in names:
         a, b = res["200k"][n], res["1000k"][n]
-        lines.append(f"{n.replace('%', chr(92) + '%')} & {a['max']:.3f} & {b['max']:.3f} & {b['p99']:.3f} & {b['mean']:.3f}\\\\")
+        label = SHORT.get(n, n).replace('%', chr(92) + '%')
+        lines.append(f"{label} & {a['max']:.3f} & {b['max']:.3f} & {b['p99']:.3f} & {b['mean']:.3f}\\\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (OUT / "table_worst.tex").write_text("\n".join(lines) + "\n")
 

@@ -22,8 +22,11 @@ SIM_REPS = 30
 
 
 def env():
+    # The recorded prediction used the cost model before the 2026-10-29 corrections (all of sigma
+    # billed as output, no prefix eviction); pin it so a rerun reproduces the recorded numbers.
     return sim.Env(system=BASE, out_per_call=OUT, prices=sim.CLAUDE_CODE, window=WINDOW,
-                   sigma_frac=0.0, sigma_min=SIGMA, sigma_max=SIGMA, rho=0.0)
+                   sigma_frac=0.0, sigma_min=SIGMA, sigma_max=SIGMA, rho=0.0,
+                   summary_out=None, prefix_rewrite=0.0)
 
 
 def growth_sequences(mean_g, n_calls, reps, seed=0):

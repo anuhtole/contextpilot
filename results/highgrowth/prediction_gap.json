@@ -1,0 +1,26 @@
+[
+ [
+  "as registered (bias-corrected)",
+  -0.34921902986524733
+ ],
+ [
+  "without bias correction",
+  -0.2458976851029493
+ ],
+ [
+  "corrected cost model",
+  -0.26134233728322354
+ ],
+ [
+  "real growth, order shuffled",
+  -0.20413092751621148
+ ],
+ [
+  "real growth, real order (replay)",
+  -0.046068721538621515
+ ],
+ [
+  "observed",
+  -0.028057605946735786
+ ]
+]

@@ -1,7 +1,8 @@
-"""Empirical competitive ratios: worst-case cost / offline optimum over adversarial sessions.
+"""Stress-test ratios: cost / offline optimum over randomly drawn hard sessions.
 
 Sessions mix steady, bursty (heavy-tailed) and regime-switching growth, and every
-prefix is evaluated, so the adversary may end the session right after a compaction.
+prefix is evaluated, so a session may end right after a compaction. The sessions are
+random draws from these families, not constructed against any particular policy.
 """
 import json
 import sys
@@ -45,7 +46,9 @@ if __name__ == "__main__":
     out = {}
     for W in (200_000, 1_000_000):
         env = sim.Env(system=30_000, out_per_call=1_000, window=W, prices=sim.CLAUDE_CODE)
-        pols = [sim.BreakEven(), sim.ClosedForm(), sim.RandomizedBreakEven(),
+        lindy = sim.empirical_residual([])  # no length data: Lindy fallback everywhere
+        pols = [sim.BreakEven(), sim.ClosedForm(), sim.RandomizedBreakEven(), sim.ClosedFormRecent(10),
+                sim.HorizonGated(sim.ClosedFormRecent(10), lindy, lam=0.5, label="Lindy"),
                 sim.FixedThreshold(0.92), sim.FixedTokens(30_000), sim.FixedTokens(80_000)]
         res = ratios(env, pols, list(adversarial_sessions(150, np.random.default_rng(5))))
         out[f"{W // 1000}k"] = res

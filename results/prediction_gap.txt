@@ -1,0 +1,7 @@
+eoq vs auto, one assumption at a time:
+  as registered (bias-corrected)        -34.9%
+  without bias correction               -24.6%
+  corrected cost model                  -26.1%
+  real growth, order shuffled           -20.4%
+  real growth, real order (replay)       -4.6%
+  observed                               -2.8%

@@ -7,90 +7,68 @@
   - Premature compaction costs +32% (13 messages) and +143% (25 messages).
   - After about 9 compactions, cross-compaction recall falls from 11.7 to 9.7 of 12.
   - The economic trigger correctly stays idle below H\*.
-  - The cost model reproduces real bills at 7.9% mean absolute error.
+  - The cost model reproduced real bills at 7.9% MAE at the time. Two measurement biases were later found to roughly cancel; with every term measured the error is 0.8% (see the results below).
 - **Not established by the pilot:** that the economic trigger *saves* money in real runs, because no pilot session grew past H\* (about 60k of history).
 - **Follow-up done:** high-growth sessions that do cross H\*; see the results section below. Real savings were single-digit, and the cost model predicted that.
 - **Remaining plan:** the SWE-bench design below is still the path to a full-paper result.
 
-## Results: high-growth real sessions (run 2026-10-28/29, $60.01 of $95 approved)
+## Results: high-growth real sessions (run 2026-10-28/29; $60.01 of $95 approved)
 
-Outputs: `results/highgrowth/` (ledger, streams, `summary.json`), `results/highgrowth_summary.txt`, `paper/table_highgrowth.tex`; regenerate with `experiments/highgrowth_summary.py`.
+The paper (§5.1) holds the authoritative write-up. The numbers below were regenerated on 2026-10-29 after an independent review found two cost-model measurement errors:
+- **Summary output was overcharged.** The summary call generates about 5.2k output tokens, not all 11k of σ.
+- **Prefix eviction was missing.** About 8.6k of the prefix is evicted and rewritten at each compaction.
 
-**Runs.**
-- Orderings h1, h2, h3 and h5 completed under all three arms (n = 4 pairs). h4 completed only under `150k`.
-- Its `auto` and `eoq` runs stalled three times. The streams show the account's five-hour rate-limit window saturated, with overage disabled, plus repeated API retries.
-- The 12 throttled partial runs ($14.05) are kept in `ledger_timeouts.jsonl` and `timeouts/`, and are excluded from analysis.
-- Stage 0 (2 calibration runs, $2.12) measured g = 5.4k per call.
+Outputs: `results/highgrowth_summary.txt`, `results/highgrowth/{summary,prediction_gap}.json`, `paper/table_highgrowth.tex`.
 
-**Native `--autocompact N` fires about 70k below N.** With `150000`, Claude Code compacted at 69–85k of total context: the value is a window size, not a trigger. The 150k arm therefore used the external controller at exactly 150k of total context.
+**Runs and attrition.**
+- Four paired orderings (h1, h2, h3, h5) completed under all three arms.
+- h4 completed only under `150k`, after three throttled attempts on the account's five-hour rate-limit window.
+- 14 partial runs ($18.06) are excluded and archived in `ledger_timeouts.jsonl` and `timeouts/`.
 
-| Arm | $/run | vs auto (paired) | 95% CI | Read | Write | Output | Compactions | Recall /20 |
-|---|---|---|---|---|---|---|---|---|
-| auto | 3.25 | — | | 1.34 | 1.36 | 0.54 | 0 | 19.0 |
-| 150k | 2.91 | −9.8% | −18.0 to −1.6 | 0.84 | 1.47 | 0.60 | 2 | 17.5 |
-| eoq | 3.13 | −2.8% | −11.1 to +9.2 | 0.82 | 1.59 | 0.72 | 3 | 15.0 |
+**Cost (paired, n = 4):**
+- `150k` vs `auto`: −9.8% (paired-t 95% CI −25.8 to +6.3; exact two-sided permutation p = 0.25).
+- `eoq` vs `auto`: −2.8% (−21.9 to +16.3; p = 0.75).
+- `eoq` vs `150k`: +8.1% (−8.6 to +24.7).
+- At n = 4 the smallest attainable p is 0.125.
 
-- Every arm fixed 20/20 bugs, all audits were correct, and there were no rule-1, 2, 3 or 5 violations.
-- Sign tests are p = 0.31 for both comparisons, because h2 is positive for both. n = 5 could not have reached p < 0.05 either.
-- eoq vs 150k: +8.1% (−0.7 to +16.8).
+**Recorded predictions** (commit cd8e116) and outcomes:
 
-**The pre-registered prediction failed.** We predicted eoq vs auto at −35% ± 6% and observed −2.8%. The cost model did not fail: the design's growth assumption did.
-1. **Rent fell as predicted.** Compaction cut cache-read spend by 39% ($1.34 to $0.82). At 0.05x reads, however, rent is only 41% of the `auto` bill. Cache writes at 2x (1-hour entries) and summary output added $0.41, cancelling most of the saving.
-2. **Growth is back-loaded.** 87–89% of each session's growth arrived in its last 40% of calls (the audits). Sessions end soon after crossing H\*, so each compaction has little horizon left to pay back. The design assumed uniform 4k-per-call growth, which gives a long post-H\* tail.
-3. **The model predicted the real outcome.** Replaying each `auto` run's real growth through the simulator gives these predicted changes vs auto:
-   - eoq: −2.1% (observed −2.8%)
-   - 150k: −7.0% (observed −9.8%)
-   - best fixed trigger in hindsight: −8.0%
-   - Per-run fidelity is 8.1% MAE over all 13 runs, including runs with native partial compaction.
-   - Even an oracle threshold could save only 4–12% on these sessions.
-4. **eoq misreads back-loaded growth.**
-   - Its session-mean estimate of g is depressed by the slow small-bug phase, so it fires earlier and more often (3 compactions vs 2).
-   - On the same traces break-even (−4.5% simulated) beats eoq (−2.1%), and a fixed 150k beats both.
-   - Tracking recent growth fixes most of this; see the horizon section below.
-5. **Quality.** Exact-expression recall fell with the number of compactions: 19.0, 17.5 and 15.0 of 20. Function recall and every rule were intact. Compaction loses irrecoverable detail even when task success is unaffected.
+| Prediction | Outcome |
+|---|---|
+| eoq vs auto −35% ± 6% | −2.8%: failed |
+| eoq vs 150k within ±5% | +8.1%: point estimate outside |
+| far arm −22% ± 8% | not run |
+| bugs ≥ 23/24 | 20/20 on the 20-bug variant: met |
+| recall drop ≤ 1/12 | eoq −4/20: failed |
 
-**What this changes in the paper's claim.**
-- The 20–40% steady-state savings are an upper envelope for long sessions that keep growing.
-- For finite, back-loaded coding sessions at Claude cache prices, trigger placement is worth single-digit percent.
-- We first guessed that horizon awareness was the missing lever. The simulation below says it is worth at most 1–2 points even with an oracle.
-- The cost model's counterfactual predictions are reliable enough to make that call per workload.
+**Protocol deviations:** 20 bugs instead of 24, an external 150k trigger instead of the CLI's, and n = 4 instead of 5.
+
+**Why it failed** (`experiments/prediction_gap.py`):
+
+| Step | eoq vs auto | Change |
+|---|---|---|
+| As recorded | −34.9% | |
+| Without the empirical bias correction (an artifact) | −24.6% | +10.3 |
+| Corrected cost model | −26.1% | −1.5 |
+| Real growth and length, order shuffled | −20.4% | +5.7 |
+| Real order: back-loading, the largest effect | −4.6% | +15.8 |
+| Observed | −2.8% | |
+
+**Mechanism.** History rent (cache reads net of the static prefix) was 29% of the `auto` bill, and compaction cut it by more than half. Cache rewrites and summary output then won back 79% of eoq's read saving and 34% of 150k's.
+
+**Fidelity.** With every term measured, the model reproduces the 18 pilot bills to 0.8% MAE, and the 12 paired high-growth bills to 0.6%. Using pilot-only parameters (held out), the high-growth error is 0.8%.
+
+**Quality.** All arms fixed 20/20 bugs and broke no rule. Exact-expression recall was 19.0, 17.5 and 15.0 of 20; this is descriptive.
 
 ## Horizon-aware rules (simulation only, 2026-10-29)
 
-Code: `sim.HorizonGated`, `sim.ClosedFormRecent`, `sim.empirical_residual` (tests in `tests/test_horizon.py`). Experiment: `experiments/horizon.py` → `results/horizon.{txt,json}`, paper table `table_horizon.tex`.
+Code: `sim.HorizonGated`, `sim.ClosedFormRecent`, `sim.empirical_residual` (tests in `tests/test_horizon.py`). Results: `results/horizon.{txt,json}` and `paper/table_horizon.tex`. The stress-test ratios are in `results/worst_case.json`, on the same 150 sessions as every other policy.
 
-**The rules.**
-- **Horizon gate.** Compact only when the inner trigger fires and the rent saved over the rest of the session repays the buy: `hold_rate·(h − s)·(1 + R̂) ≥ K(h)`.
-  - R̂ is predicted from session lengths seen out of sample, with a Lindy fallback (about as many calls again) beyond the data.
-  - Robustness fallback: compact anyway once rent since the last compaction reaches K/λ, with λ = 0.5.
-- **Recent g.** The steady-state target computed from an EWMA of growth (half-life 10 calls) instead of the session mean.
-
-**Results** (cost vs the best fixed threshold chosen in hindsight; lower is better):
-
-| Setting | steady-state | + recent g | + gate (learned) | + gate (oracle) | 150k | break-even |
-|---|---|---|---|---|---|---|
-| real high-growth runs (4), 1M | +6.2% | +3.1% | +3.1% | +1.1% | +0.9% | +3.6% |
-| real replay (25), 1M | +0.9% | +0.4% | +0.4% | −0.8% | +1.5% | +0.3% |
-| real replay (25), 200k | +0.2% | +0.0% | +0.0% | −1.3% | +0.8% | −0.2% |
-| synthetic (300), 1M, Claude Code | +0.5% | +0.3% | +0.3% | −0.7% | +0.4% | +0.5% |
-| synthetic, 1M, cached 0.1x | +0.1% | +0.1% | +0.1% | −1.0% | +1.1% | +0.7% |
-| synthetic, 1M, uncached | +0.3% | +0.1% | +0.1% | −0.3% | +24.8% | +1.2% |
-| SWE-agent (1500), 128k | +0.6% | +0.3% | +0.3% | −1.6% | +0.1% | +0.3% |
-
-The "+ gate" columns add the gate on top of recent g.
-
-1. **The learned horizon gate never changes a decision.**
-   - Session lengths are heavy-tailed, so predicted remaining life always exceeds the roughly 16 calls a compaction near H\* needs to repay itself.
-   - Its results equal its inner rule in every setting.
-2. **Even perfect horizon information is worth only 1–2 points.** The oracle gate's gain is the ceiling for any horizon predictor.
-3. **Tracking recent growth is the useful fix.**
-   - It halves the steady-state rule's gap on the real back-loaded runs, from +6.2% to +3.1%.
-   - It is neutral on synthetic sessions, whose growth is i.i.d. by construction.
-4. **Worst case.** Adversarial prefixes at 1M give max cost / offline optimum of:
-   - 1.133 for recent g with the gate, the same as break-even;
-   - 1.152 for steady-state.
-5. **The existing learned ski rental** (break-even with a length predictor) is the weakest adaptive rule in every setting, at +1.1% to +6.7%.
-6. **Robustness, not raw savings, is the case for adaptive rules.** A fixed 150k is within 1.5% of best at Claude prices but +24.8% uncached. Adaptive rules stay within about 3% everywhere.
+- **The learned horizon gate never changes a decision.** With an oracle it adds 0.3–1.9 points over its inner rule.
+- **Recent-growth tracking** (EWMA, half-life 10) was designed after seeing the real runs, so it is exploratory.
+  - On the real back-loaded growth it improves the online rule from +5.1% to +1.6% vs the best fixed threshold.
+  - It is slightly worse on i.i.d. and replayed sessions (+0.2% → +0.4%) and on the stress test (1.155 vs 1.140).
+- **A fixed 150k** is within about 1% of the best at Claude prices but 29% worse uncached.
 
 ## Design: high-growth real sessions (written 2026-10-28, before the runs)
 

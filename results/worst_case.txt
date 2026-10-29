@@ -1,16 +1,20 @@
 
 window 200k, Claude Code prices: cost / offline optimum over all prefixes
-  ski-rental break-even              max 1.151   p99 1.107   mean 1.013
-  steady-state optimum (online g)    max 1.152   p99 1.122   mean 1.018
-  fixed 92% of window                max 1.179   p99 1.110   mean 1.013
-  fixed 80k history                  max 1.260   p99 1.170   mean 1.039
-  ski-rental randomized              max 1.511   p99 1.225   mean 1.034
-  fixed 30k history                  max 1.797   p99 1.674   mean 1.284
+  steady-state optimum (online g)    max 1.140   p99 1.122   mean 1.019
+  ski-rental break-even              max 1.146   p99 1.115   mean 1.013
+  steady-state optimum (recent g, half-life 10) max 1.155   p99 1.117   mean 1.013
+  steady-state optimum (recent g, half-life 10) + horizon gate (Lindy, lam=0.5) max 1.155   p99 1.117   mean 1.013
+  fixed 92% of window                max 1.181   p99 1.108   mean 1.014
+  fixed 80k history                  max 1.220   p99 1.138   mean 1.030
+  fixed 30k history                  max 1.658   p99 1.569   mean 1.235
+  ski-rental randomized              max 2.054   p99 1.200   mean 1.032
 
 window 1000k, Claude Code prices: cost / offline optimum over all prefixes
-  ski-rental break-even              max 1.151   p99 1.107   mean 1.013
-  steady-state optimum (online g)    max 1.152   p99 1.123   mean 1.019
-  fixed 80k history                  max 1.260   p99 1.175   mean 1.041
-  fixed 92% of window                max 1.497   p99 1.432   mean 1.061
-  ski-rental randomized              max 1.542   p99 1.218   mean 1.035
-  fixed 30k history                  max 1.797   p99 1.674   mean 1.287
+  steady-state optimum (online g)    max 1.140   p99 1.123   mean 1.020
+  ski-rental break-even              max 1.146   p99 1.115   mean 1.013
+  steady-state optimum (recent g, half-life 10) max 1.155   p99 1.117   mean 1.014
+  steady-state optimum (recent g, half-life 10) + horizon gate (Lindy, lam=0.5) max 1.155   p99 1.117   mean 1.014
+  fixed 80k history                  max 1.220   p99 1.143   mean 1.031
+  ski-rental randomized              max 1.430   p99 1.203   mean 1.033
+  fixed 92% of window                max 1.520   p99 1.456   mean 1.068
+  fixed 30k history                  max 1.658   p99 1.569   mean 1.236

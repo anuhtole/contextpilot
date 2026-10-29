@@ -1,23 +1,28 @@
-13 runs, total $39.83
+13 completed runs; paired orderings h1, h2, h3, h5; unpaired (excluded): h4-150k-r1
 
 arm     n  mean $      n_fixed recall_expre recall_funct c1_untagged_ c2_new_files c5_rule5_vio audit_lineco audit_lastde  compactions peak_context        calls
-150k    5   2.861         20.0         17.2         20.0          0.0          0.0          0.0          8.0          8.0          2.0     180383.8        109.8
+150k    4   2.911         20.0         17.5         20.0          0.0          0.0          0.0          8.0          8.0          2.0     185705.5        111.0
 auto    4   3.246         20.0         19.0         20.0          0.0          0.0          0.0          8.0          8.0          0.0     365369.8        110.8
 eoq     4   3.135         20.0         15.0         19.8          0.0          0.0          0.0          8.0          8.0          3.0     150670.0        114.5
 
-eoq vs auto: -2.8% (95% CI -11.1 to +9.2), sign-test p=0.312, n=4, each -7% +15% -6% -13%
-150k vs auto: -9.8% (95% CI -18.0 to -1.6), sign-test p=0.312, n=4, each -22% +0% -3% -14%
-eoq vs 150k: +8.1% (95% CI -0.7 to +16.8), sign-test p=0.938, n=4, each +19% +15% -3% +1%
+eoq vs auto: -2.8% (paired t 95% CI -21.9 to +16.3), exact two-sided permutation p=0.750, n=4, each -7% +15% -6% -13%
+150k vs auto: -9.8% (paired t 95% CI -25.8 to +6.3), exact two-sided permutation p=0.250, n=4, each -22% +0% -3% -14%
+eoq vs 150k: +8.1% (paired t 95% CI -8.6 to +24.7), exact two-sided permutation p=0.375, n=4, each +19% +15% -3% +1%
 
-simulator fidelity: mean abs error 8.1% over 13 runs
+simulator fidelity: mean abs error 0.6% over the 12 paired runs
+  unpaired h4-150k-r1: +10.2% (ran under heavy throttling)
 
 bill breakdown, mean $ per run over h1, h2, h3, h5 (CLI modelUsage totals):
-  auto  read $1.34  write $1.36  output $0.54  input $0.00
-  eoq   read $0.82  write $1.59  output $0.72  input $0.01
-  150k  read $0.84  write $1.47  output $0.60  input $0.01
+  auto  read $1.34  write $1.36  output $0.54  input $0.00  history rent $0.95  | history rent $0.95 = 29% of bill
+  eoq   read $0.82  write $1.59  output $0.72  input $0.01  history rent $0.41  | history rent $0.41 = 13% of bill
+  150k  read $0.84  write $1.47  output $0.60  input $0.01  history rent $0.44  | history rent $0.44 = 15% of bill
 
 counterfactual policies on each auto run's real growth (simulated % vs auto):
-  h1: eoq -6.5%  150k -10.2%  break-even -8.3%  best fixed -11.7%  late growth share +87.6%
-  h2: eoq +1.8%  150k -2.5%  break-even +1.9%  best fixed -3.8%  late growth share +89.0%
-  h3: eoq -2.7%  150k -6.6%  break-even -5.0%  best fixed -7.8%  late growth share +87.0%
-  h5: eoq -1.1%  150k -8.8%  break-even -6.5%  best fixed -8.8%  late growth share +88.1%
+  h1: eoq (live rule) -8.6%  eoq (corrected model) -9.0%  150k -11.6%  break-even -9.9%  best fixed -12.4%  late growth share +87.6%
+  h2: eoq (live rule) -0.7%  eoq (corrected model) +3.9%  150k -4.2%  break-even -1.6%  best fixed -4.7%  late growth share +89.0%
+  h3: eoq (live rule) -5.0%  eoq (corrected model) -5.7%  150k -8.1%  break-even -7.4%  best fixed -8.5%  late growth share +87.0%
+  h5: eoq (live rule) -4.1%  eoq (corrected model) -4.5%  150k -10.3%  break-even -8.5%  best fixed -10.3%  late growth share +88.1%
+
+per ordering, predicted (replay of auto growth) vs observed paired difference vs auto:
+  eoq   h1 -8.6/-7.0  h2 -0.7/+14.7  h3 -5.0/-6.0  h5 -4.1/-12.8  | mean -4.6/-2.8
+  150k  h1 -11.6/-22.0  h2 -4.2/+0.1  h3 -8.1/-3.3  h5 -10.3/-14.0  | mean -8.6/-9.8

@@ -24,6 +24,12 @@ CACHED_55 = Prices(read=0.05, write=1.25, out=5.0, name="cached (5.5-gen 0.05x r
 CLAUDE_CODE = Prices(read=0.05, write=2.0, out=5.0, name="Claude Code (0.05x read, 1h 2x write)")
 
 
+CLAUDE_CODE_SUMMARY_OUT = 5_200
+# After /compact only the cross-session part of Claude Code's prefix (~27.4k: shared system prompt
+# and tools) stays cached; the session-specific rest (~8.6k of a ~36k prefix) is rewritten.
+CLAUDE_CODE_PREFIX_REWRITE = 8_600
+
+
 @dataclass(frozen=True)
 class Env:
     system: int = 20_000        # static prefix (system prompt + tools), stays cached
@@ -35,6 +41,12 @@ class Env:
     sigma_min: int = 11_000
     sigma_max: int = 11_000
     rho: float = 0.0            # fraction of compacted history re-fetched afterwards
+    # Output tokens the summary call generates. Claude Code's post-compaction conversation (sigma)
+    # is the summary plus restored files and preserved messages. Over 54 compactions in completed
+    # runs the summary call generated 5.2k on average: 4.4k at ~50k context (pilot), 6.3k at
+    # 100-200k (high-growth runs). None = the whole sigma is generated.
+    summary_out: float | None = CLAUDE_CODE_SUMMARY_OUT
+    prefix_rewrite: float = CLAUDE_CODE_PREFIX_REWRITE  # static-prefix tokens re-cached at each compaction
     quality: float = 0.0        # optional context-rot price per token held per call
     penalty: float = 0.0        # quality cost per compaction, in base-input-token units
     prices: Prices = CACHED
@@ -45,6 +57,12 @@ class Env:
 
 def sigma(env, h):
     return float(np.clip(env.sigma_frac * h, env.sigma_min, env.sigma_max))
+
+
+def summary_tokens(env, h):
+    """Generated (output-priced) part of the post-compaction conversation."""
+    s = sigma(env, h)
+    return s if env.summary_out is None else min(env.summary_out, s)
 
 
 def post_history(env, h):
@@ -60,8 +78,8 @@ def buy_cost(env, h):
     """One-time cost of compacting history h: summary call + prefix rewrite premium."""
     p = env.prices
     read_for_summary = p.read * (env.system + h)
-    write_summary = p.out * sigma(env, h)
-    rewrite_premium = max(p.write - p.read, 0.0) * post_history(env, h)
+    write_summary = p.out * summary_tokens(env, h)
+    rewrite_premium = max(p.write - p.read, 0.0) * (post_history(env, h) + env.prefix_rewrite)
     return read_for_summary + write_summary + rewrite_premium + env.penalty
 
 
@@ -72,10 +90,14 @@ def eoq_history(env, g):
     the per-call cost is h g n (1 + rho) / (2 (1 - rho)) + A'/n with
     A' = r S + o sigma + P + w sigma / (1 - rho), so
     n* = sqrt(2 A' (1 - rho) / (h g (1 + rho))) and H* = (sigma + g n*) / (1 - rho).
-    For rho = 0 this is the EOQ H* = sigma + sqrt(2 g A / h), A = r S + (o + w) sigma + P.
+    For rho = 0 this is the EOQ H* = sigma + sqrt(2 g A / h), A = r S + o sigma_out + w sigma + (w - r) S_r + P,
+    where sigma_out <= sigma is the generated part of the post-compaction conversation and S_r the
+    part of the static prefix that compaction evicts from the cache.
     Independent of the window. Use steady_state_optimum when sigma depends on H."""
     p, rho, sig = env.prices, env.rho, env.sigma_min
-    a = p.read * env.system + p.out * sig + env.penalty + max(p.write, p.read) * sig / (1 - rho)
+    sig_out = sig if env.summary_out is None else min(env.summary_out, sig)
+    a = (p.read * env.system + p.out * sig_out + env.penalty + max(p.write, p.read) * sig / (1 - rho)
+         + max(p.write - p.read, 0.0) * env.prefix_rewrite)
     n = np.sqrt(2 * a * (1 - rho) / (hold_rate(env) * g * (1 + rho)))
     return float((sig + g * n) / (1 - rho))
 
@@ -111,10 +133,10 @@ def cold_buy_cost(env, h):
 
     Not compacting forces a rewrite of the whole prefix at the write price; compacting
     reads it once uncached (1.0) for the summary and writes only the short new prefix
-    (system + s). Negative whenever (write - 1)(system + h) > out*sigma + write*(system + s)."""
+    (system + s). Negative whenever (write - 1)(system + h) > out*sigma_out + write*(system + s)."""
     p = env.prices
     s = post_history(env, h)
-    return ((1.0 - p.write) * (env.system + h) + p.out * sigma(env, h)
+    return ((1.0 - p.write) * (env.system + h) + p.out * summary_tokens(env, h)
             + p.write * (env.system + s) + env.penalty)
 
 
