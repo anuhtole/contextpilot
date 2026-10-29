@@ -95,3 +95,7 @@ The pilot (`bench/run_pilot.py`) spends real API money. Each run is capped by `-
 - Set `PILOT_TIMEOUT_S` to extend the per-run timeout.
 
 Origin: a clean-room reimplementation and extension of a concept Anatole Seychal first prototyped in summer 2026.
+
+## License
+
+MIT; see [LICENSE](LICENSE). The session logs under `results/` quote CPython standard-library source, which remains under the PSF License. `data/swe_agent_traces.json` is derived from Nebius's SWE-agent trajectories dataset and follows that dataset's terms.
