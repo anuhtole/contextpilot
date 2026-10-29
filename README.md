@@ -3,9 +3,9 @@
 **When should a long-running LLM agent compact its context?** Production harnesses answer with a constant, usually a fraction of the context window:
 
 - Claude Code compacts near the window limit by default; `--autocompact N` takes a window of at least 100k and fires about 70k below it.
-- Anthropic's compaction API defaults to 150k.
-- OpenAI's Responses API takes a `compact_threshold`.
-- Gemini CLI's documented default is 70% of the window.
+- Anthropic's compaction API defaults to a 150k-input-token trigger (minimum 50k).
+- OpenAI's Responses API takes a `compact_threshold`, with no documented default.
+- Gemini CLI compacts at `model.compressionThreshold`, a fraction of the window that defaults to 0.5.
 
 ContextPilot treats the decision as an economic problem under real prompt-cache pricing.
 

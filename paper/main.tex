@@ -30,12 +30,12 @@ Agentic coding assistants run sessions of tens to hundreds of model calls, and t
 In the products we examined the trigger is a constant~\cite{docs}:
 \begin{itemize}
 \item Claude Code compacts near the window limit by default. Its \texttt{--autocompact} option sets a compaction \emph{window} of at least 100k, and in our runs compaction fired about 70k below the value given.
-\item Anthropic's compaction API defaults to 150k tokens.
-\item OpenAI's Responses API exposes a \texttt{compact\_threshold}.
-\item Gemini CLI's documented default is 70\% of the window.
+\item Anthropic's compaction API (\texttt{compact\_20260112}) defaults to a trigger of 150k input tokens, with a minimum of 50k.
+\item OpenAI's Responses API exposes a \texttt{compact\_threshold}, with no documented default.
+\item Gemini CLI compacts at a fraction of the window, \texttt{model.compressionThreshold}, which defaults to 0.5.
 \end{itemize}
 
-The bill, however, is set by prices, growth and the cost of a compaction. Prompt caching makes held history cheap (0.05--0.1$\times$ the input price) but not free, and each compaction pays output price for the summary and rewrites part of the cached prefix at the write price.
+The bill, however, is set by prices, growth and the cost of a compaction. Prompt caching makes held history cheap (0.025--0.1$\times$ the input price, by model) but not free, and each compaction pays output price for the summary and rewrites part of the cached prefix at the write price.
 
 \paragraph{Contributions.}
 \begin{enumerate}
@@ -49,7 +49,7 @@ The bill, however, is set by prices, growth and the cost of a compaction. Prompt
   We also give a break-even (ski-rental) rule and an online steady-state rule that need no tuning, and a cold-cache rule.
 \item Evaluation (\S\ref{sec:eval}):
   \begin{itemize}
-  \item trace-driven simulation against product defaults, a hindsight-tuned threshold and an offline optimum;
+  \item trace-driven simulation against product-style triggers, a hindsight-tuned threshold and an offline optimum;
   \item stress tests;
   \item two real-agent studies, including a prediction recorded before the runs that failed. A decomposition attributes the failure to growth that arrives late in the session.
   \end{itemize}
@@ -57,7 +57,7 @@ The bill, however, is set by prices, growth and the cost of a compaction. Prompt
 \end{enumerate}
 
 \section{Related work}
-\paragraph{What to keep.} Observation masking matches LLM summarization on SWE-agent at about half the cost~\cite{complexitytrap}. ACON optimizes compression guidelines~\cite{acon}, TRACER learns per-tool retention~\cite{tracer}, and ARC replaces tool outputs with recoverable citations~\cite{arc}. Context-Folding learns to branch and fold~\cite{folding}, and MemGPT pages memory under model control~\cite{memgpt}. Tirmazi et al.\ relate compaction to one-way communication complexity~\cite{compactiontheory}; their analysis concerns the content of a bounded state, not timing or price. Liu finds that compression increases re-fetching~\cite{compresscost}, which is our $\rho$. We measure it at 0.7\% of dropped tokens for Claude Code on our tasks.
+\paragraph{What to keep.} Observation masking matches LLM summarization on SWE-agent at about half the cost~\cite{complexitytrap}. ACON optimizes compression guidelines~\cite{acon}, TRACER learns per-tool retention~\cite{tracer}, and ARC archives tool outputs and replaces them with short addressable references the agent can recall~\cite{arc}. Context-Folding learns to branch and fold~\cite{folding}, and MemGPT pages memory under model control~\cite{memgpt}. Tirmazi et al.\ relate compaction to one-way communication complexity~\cite{compactiontheory}; their analysis concerns the content of a bounded state, not timing or price. Liu finds that compression increases re-fetching~\cite{compresscost}, which is our $\rho$. We measure it at 0.7\% of dropped tokens for Claude Code on our tasks.
 
 \paragraph{Cache-aware context management.} TokenPilot trades context sparsity against prefix-cache stability with lifecycle-based eviction~\cite{tokenpilot}, and CliffCompaction truncates rather than rewrites history~\cite{cliff}. Neither derives when a compaction pays for itself.
 
@@ -150,14 +150,14 @@ With our measured parameters this means $H>88$k for 1-hour entries and $H>319$k 
 
 \paragraph{Data.}
 \begin{itemize}
-\item \textbf{Claude Code sessions.} 25 of our own sessions, reduced to numeric token usage only: 1{,}490 calls, mean growth 3.6k tokens per call, a median of 36 calls, and 94.7\% of input tokens served from cache. These come from one user. Twelve are subagent sessions, and the calls span four models (Fable 5.1, Opus 5.5, Sonnet 5.5, Fable 5); we apply Claude Code prices to all of them.
+\item \textbf{Claude Code sessions.} 25 of our own sessions, reduced to numeric token usage only: 1{,}490 calls, mean growth 3.6k tokens per call, a median of 36 calls, and 94.7\% of input tokens served from cache. These come from one user. Twelve are subagent sessions, and the calls span four models (Fable 5.1, Opus 5.5, Sonnet 5.5, Fable 5); we apply Claude Code prices at Sonnet 5.5 rates to all of them. Fable 5.1 reads cache at 0.025$\times$ rather than 0.05$\times$, so for its calls this overstates history rent.
 \item \textbf{SWE-agent trajectories.} 1{,}500 trajectories sampled from 13{,}287 in two public shards~\cite{nebius}, with mean growth 491 tokens per call. Token counts are approximated as characters divided by 4. Summaries are assumed to be 2k tokens, all of them generated, since these contexts peak near 10k.
 \end{itemize}
 
 \paragraph{Policies.}
 \begin{itemize}
 \item Fixed 92\% of the window, the reference for reported changes.
-\item The product defaults: 150k of total context and 70\% of the window.
+\item Product-style constants: 150k of total context (the Anthropic API default) and 70\% of the window, a window-relative trigger between Gemini CLI's 50\% default and the 92\% reference.
 \item Deterministic break-even.
 \item The online rule: Proposition~\ref{prop:eoq} solved numerically with a running mean of $g$, with no tuning to the data.
 \item The best fixed threshold, chosen in hindsight from an independent 48-point grid on the evaluation data.
@@ -353,12 +353,11 @@ Table~\ref{tab:horizon} reports the results.
 \section{Conclusion}
 Compaction timing is a flat EOQ problem with a window-independent optimum. Under current Claude cache prices, a product default near 150k is already close to that optimum for typical coding growth, and window-relative triggers on 1M-window models are the clear inefficiency. A cost model with measured parameters reproduces real bills to within 1\%. That fidelity is what explains our failed prediction: real sessions do most of their growing just before they end, so steady-state savings are a ceiling. Adaptive triggers earn their place through robustness across prices and summary costs, not through large savings at today's prices.
 
-% TODO before submission: complete the tracer, arc and docs entries (titles/venues unverified).
 \begin{thebibliography}{99}
 \bibitem{complexitytrap} T.~Lindenbauer et al. The complexity trap: Simple observation masking is as efficient as LLM summarization for agent context management. arXiv:2508.21433, 2025.
 \bibitem{acon} M.~Kang et al. ACON: Optimizing context compression for long-horizon LLM agents. arXiv:2510.00615, 2025.
-\bibitem{tracer} Lin et al. TRACER. arXiv:2608.29363, 2026.
-\bibitem{arc} Dang et al. Addressable recall compaction. arXiv:2607.25066, 2026.
+\bibitem{tracer} Z.~Lin, Y.~Wu, M.~Yang, X.~Liu, Y.~Liu, Q.~Ke, Q.~Guo. TRACER: Per-tool context retention for LLM agents via consequence-attributed reinforcement learning. arXiv:2608.29363, 2026.
+\bibitem{arc} T.~Dang, Y.~Ichikawa, S.~Fatima, K.~Shirahata. Addressable recall compaction for long context-window control in AI agents. arXiv:2607.25066, 2026.
 \bibitem{folding} Sun et al. Scaling long-horizon LLM agent via context-folding. arXiv:2510.11967, 2025.
 \bibitem{memgpt} C.~Packer et al. MemGPT: Towards LLMs as operating systems. arXiv:2310.08560, 2023.
 \bibitem{compactiontheory} H.~Tirmazi, S.~Markelon, A.~Bishop, M.~Mitzenmacher. Context compaction theory. arXiv:2608.01326, 2026.
@@ -371,7 +370,7 @@ Compaction timing is a flat EOQ problem with a window-independent optimum. Under
 \bibitem{fleischer} R.~Fleischer. On the Bahncard problem. COCOON, 1998.
 \bibitem{infercept} R.~Abhyankar et al. InferCept: Efficient intercept support for augmented large language model inference. ICML, 2024.
 \bibitem{harris} F.~W.~Harris. How many parts to make at once. Factory, The Magazine of Management, 1913.
-\bibitem{docs} Product documentation, accessed October 2026: Claude Code settings (\texttt{autoCompactWindow}); Anthropic API context editing and compaction (\texttt{compact\_20260112}); OpenAI Responses API \texttt{compact\_threshold}; Gemini CLI \texttt{chatCompression}; Anthropic prompt-caching pricing.
+\bibitem{docs} Product documentation, accessed 29 October 2026. Claude Code settings, \texttt{autoCompactWindow} (100k--1M or \texttt{auto}), \url{https://code.claude.com/docs/en/settings-reference}; Claude Code model configuration, \url{https://code.claude.com/docs/en/model-config}; Anthropic API compaction, \texttt{compact\_20260112}, \url{https://platform.claude.com/docs/en/build-with-claude/compaction}; Anthropic prompt caching and pricing, \url{https://platform.claude.com/docs/en/build-with-claude/prompt-caching}; OpenAI Responses API compaction, \texttt{compact\_threshold}, \url{https://developers.openai.com/api/docs/guides/compaction}; Gemini CLI configuration, \texttt{model.compressionThreshold}, \url{https://geminicli.com/docs/reference/configuration}.
 \bibitem{nebius} Nebius. SWE-agent trajectories dataset. Hugging Face, 2024.
 \end{thebibliography}
 \end{document}
