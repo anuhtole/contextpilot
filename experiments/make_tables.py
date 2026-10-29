@@ -45,7 +45,24 @@ def worst_table():
     (OUT / "table_worst.tex").write_text("\n".join(lines) + "\n")
 
 
+HORIZON_COLS = [("steady-state", "steady-state"), ("steady-state, recent g", "+ recent $g$"),
+                ("horizon-gated, recent g", "+ gate (learned)"), ("horizon-gated, recent g, oracle", "+ gate (oracle)"),
+                ("150k context", "150k"), ("break-even", "break-even")]
+
+
+def horizon_table():
+    rows = json.loads((ROOT / "results" / "horizon.json").read_text())["rows"]
+    lines = [r"\begin{tabular}{l" + "r" * len(HORIZON_COLS) + "}", r"\toprule",
+             "Setting & " + " & ".join(label for _, label in HORIZON_COLS) + r"\\", r"\midrule"]
+    for r in rows:
+        name = r["setting"].replace("Claude Code (0.05x read, 1h 2x write)", "Claude Code").replace(", Claude Code prices", "")
+        lines.append(f"{name} & " + " & ".join(pct(r["policies"][k]["vs_best_fixed"]) for k, _ in HORIZON_COLS) + r"\\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    (OUT / "table_horizon.tex").write_text("\n".join(lines) + "\n")
+
+
 if __name__ == "__main__":
     gap = main_table()
     worst_table()
+    horizon_table()
     print(f"wrote tables; worst online-vs-best gap {100 * gap:.2f}%")

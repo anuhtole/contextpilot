@@ -1,0 +1,76 @@
+
+## real Claude Code replay, 1000k, Claude Code prices (n=25): best fixed -22.1% vs 92%  optimum -23.5%
+  horizon-gated, recent g, oracle    vs 92%  -22.7%  vs best fixed  -0.8%  vs opt  +1.0%  compactions 1.04
+  break-even                         vs 92%  -21.8%  vs best fixed  +0.3%  vs opt  +2.2%  compactions 1.28
+  steady-state, recent g             vs 92%  -21.7%  vs best fixed  +0.4%  vs opt  +2.3%  compactions 1.36
+  horizon-gated, recent g            vs 92%  -21.7%  vs best fixed  +0.4%  vs opt  +2.3%  compactions 1.36
+  horizon-gated                      vs 92%  -21.4%  vs best fixed  +0.9%  vs opt  +2.8%  compactions 1.36
+  steady-state                       vs 92%  -21.4%  vs best fixed  +0.9%  vs opt  +2.8%  compactions 1.36
+  150k context                       vs 92%  -20.9%  vs best fixed  +1.5%  vs opt  +3.4%  compactions 1.48
+  learned ski rental (hazard)        vs 92%  -20.8%  vs best fixed  +1.6%  vs opt  +3.5%  compactions 1.96
+
+## real Claude Code replay, 200k, Claude Code prices (n=25): best fixed -0.0% vs 92%  optimum -2.2%
+  horizon-gated, recent g, oracle    vs 92%   -1.3%  vs best fixed  -1.3%  vs opt  +1.0%  compactions 1.20
+  break-even                         vs 92%   -0.2%  vs best fixed  -0.2%  vs opt  +2.1%  compactions 1.48
+  steady-state, recent g             vs 92%   +0.0%  vs best fixed  +0.0%  vs opt  +2.3%  compactions 1.52
+  horizon-gated, recent g            vs 92%   +0.0%  vs best fixed  +0.0%  vs opt  +2.3%  compactions 1.52
+  horizon-gated                      vs 92%   +0.2%  vs best fixed  +0.2%  vs opt  +2.5%  compactions 1.48
+  steady-state                       vs 92%   +0.2%  vs best fixed  +0.2%  vs opt  +2.5%  compactions 1.48
+  150k context                       vs 92%   +0.8%  vs best fixed  +0.8%  vs opt  +3.2%  compactions 1.60
+  learned ski rental (hazard)        vs 92%   +1.1%  vs best fixed  +1.1%  vs opt  +3.5%  compactions 2.12
+
+## real high-growth runs (auto growth), 1M, Claude Code prices (n=4): best fixed -8.0% vs 92%  optimum -8.1%
+  150k context                       vs 92%   -7.1%  vs best fixed  +0.9%  vs opt  +1.1%  compactions 2.00
+  horizon-gated, recent g, oracle    vs 92%   -6.9%  vs best fixed  +1.1%  vs opt  +1.3%  compactions 1.00
+  steady-state, recent g             vs 92%   -5.1%  vs best fixed  +3.1%  vs opt  +3.2%  compactions 2.00
+  horizon-gated, recent g            vs 92%   -5.1%  vs best fixed  +3.1%  vs opt  +3.2%  compactions 2.00
+  break-even                         vs 92%   -4.7%  vs best fixed  +3.6%  vs opt  +3.8%  compactions 2.00
+  steady-state                       vs 92%   -2.3%  vs best fixed  +6.2%  vs opt  +6.4%  compactions 3.25
+  horizon-gated                      vs 92%   -2.3%  vs best fixed  +6.2%  vs opt  +6.4%  compactions 3.25
+  learned ski rental (hazard)        vs 92%   -1.8%  vs best fixed  +6.7%  vs opt  +6.9%  compactions 3.00
+
+## synthetic local (300), 1M, Claude Code (0.05x read, 1h 2x write) (n=300): best fixed -20.9% vs 92%
+  horizon-gated, recent g, oracle    vs 92%  -21.5%  vs best fixed  -0.7%  compactions 0.90
+  steady-state, recent g             vs 92%  -20.7%  vs best fixed  +0.3%  compactions 1.14
+  horizon-gated, recent g            vs 92%  -20.7%  vs best fixed  +0.3%  compactions 1.14
+  150k context                       vs 92%  -20.6%  vs best fixed  +0.4%  compactions 1.19
+  horizon-gated                      vs 92%  -20.5%  vs best fixed  +0.5%  compactions 1.14
+  steady-state                       vs 92%  -20.5%  vs best fixed  +0.5%  compactions 1.14
+  break-even                         vs 92%  -20.5%  vs best fixed  +0.5%  compactions 1.09
+  learned ski rental (hazard)        vs 92%  -19.1%  vs best fixed  +2.2%  compactions 1.74
+
+## synthetic local (300), 1M, cached (n=300): best fixed -36.8% vs 92%
+  horizon-gated, recent g, oracle    vs 92%  -37.5%  vs best fixed  -1.0%  compactions 1.53
+  horizon-gated                      vs 92%  -36.8%  vs best fixed  +0.1%  compactions 1.80
+  steady-state                       vs 92%  -36.8%  vs best fixed  +0.1%  compactions 1.79
+  steady-state, recent g             vs 92%  -36.7%  vs best fixed  +0.1%  compactions 1.86
+  horizon-gated, recent g            vs 92%  -36.7%  vs best fixed  +0.1%  compactions 1.86
+  break-even                         vs 92%  -36.4%  vs best fixed  +0.7%  compactions 1.79
+  150k context                       vs 92%  -36.1%  vs best fixed  +1.1%  compactions 1.19
+  learned ski rental (hazard)        vs 92%  -35.4%  vs best fixed  +2.2%  compactions 2.68
+
+## synthetic local (300), 1M, uncached (n=300): best fixed -65.1% vs 92%
+  horizon-gated, recent g, oracle    vs 92%  -65.2%  vs best fixed  -0.3%  compactions 4.64
+  horizon-gated, recent g            vs 92%  -65.0%  vs best fixed  +0.1%  compactions 4.99
+  steady-state, recent g             vs 92%  -65.0%  vs best fixed  +0.1%  compactions 4.99
+  horizon-gated                      vs 92%  -65.0%  vs best fixed  +0.3%  compactions 4.89
+  steady-state                       vs 92%  -65.0%  vs best fixed  +0.3%  compactions 4.86
+  break-even                         vs 92%  -64.7%  vs best fixed  +1.2%  compactions 4.71
+  learned ski rental (hazard)        vs 92%  -64.6%  vs best fixed  +1.4%  compactions 7.01
+  150k context                       vs 92%  -56.4%  vs best fixed +24.8%  compactions 1.19
+
+## SWE-agent (1500), 128k, Claude Code prices (n=1500): best fixed -0.1% vs 92%
+  horizon-gated, recent g, oracle    vs 92%   -1.7%  vs best fixed  -1.6%  compactions 0.10
+  150k context                       vs 92%   +0.0%  vs best fixed  +0.1%  compactions 0.00
+  break-even                         vs 92%   +0.2%  vs best fixed  +0.3%  compactions 0.26
+  steady-state, recent g             vs 92%   +0.3%  vs best fixed  +0.3%  compactions 0.24
+  horizon-gated, recent g            vs 92%   +0.3%  vs best fixed  +0.3%  compactions 0.24
+  horizon-gated                      vs 92%   +0.6%  vs best fixed  +0.6%  compactions 0.24
+  steady-state                       vs 92%   +0.6%  vs best fixed  +0.6%  compactions 0.24
+  learned ski rental (hazard)        vs 92%   +2.3%  vs best fixed  +2.4%  compactions 0.45
+
+## worst case, 60 adversarial sessions, every prefix (1000k, Claude Code prices)
+  break-even                         max 1.133  p99 1.107  mean 1.013
+  horizon-gated, recent g (Lindy)    max 1.133  p99 1.103  mean 1.014
+  steady-state                       max 1.152  p99 1.122  mean 1.019
+  horizon-gated (Lindy)              max 1.152  p99 1.122  mean 1.019

@@ -264,6 +264,58 @@ class PredictiveBreakEven(BreakEven):
         return s["rent"] >= (self.lam * buy if pays_back else buy / self.lam)
 
 
+class ClosedFormRecent(ClosedForm):
+    """ClosedForm with an exponentially weighted growth estimate (half-life in calls), so a
+    late growth burst raises the target instead of being averaged away by a slow start."""
+    def __init__(self, half_life=10.0, g0=2_000.0):
+        super().__init__(g0=g0)
+        self.alpha = 1.0 - 0.5 ** (1.0 / half_life)
+        self.name = f"steady-state optimum (recent g, half-life {half_life:g})"
+    def reset(self, env): return {"g": self.g0}
+    def observe(self, env, s, t, h, g=0.0): return {"g": (1 - self.alpha) * s["g"] + self.alpha * g}
+    def should_compact(self, env, s, t, h, g):
+        return h >= self._target(env, s["g"])
+
+
+class HorizonGated(Policy):
+    """Compact only when the inner trigger fires and the rent saved over the rest of the
+    session repays the buy: hold_rate * (h - s(h)) * (1 + R(t)) >= K(h), with R(t) the
+    predicted calls remaining after this one. A steady-state trigger ignores the horizon,
+    so near the end of a session it buys compactions that cannot pay back.
+    Robustness: whatever the predictor says, compact once the rent paid on the compactable
+    excess since the last compaction reaches K / lam (break-even, delayed by 1 / lam)."""
+    def __init__(self, inner, remaining_fn, lam=0.5, label="predictor"):
+        self.inner, self.remaining_fn, self.lam = inner, remaining_fn, lam
+        self.name = f"{inner.name} + horizon gate ({label}, lam={lam:g})"
+    def reset(self, env): return {"inner": self.inner.reset(env), "rent": 0.0}
+    def on_compact(self, env, s): return {"inner": self.inner.on_compact(env, s["inner"]), "rent": 0.0}
+    def observe(self, env, s, t, h, g=0.0):
+        excess = max(h - post_history(env, h), 0.0)
+        return {"inner": self.inner.observe(env, s["inner"], t, h, g), "rent": s["rent"] + hold_rate(env) * excess}
+    def should_compact(self, env, s, t, h, g):
+        buy = buy_cost(env, h)
+        if s["rent"] >= buy / self.lam:
+            return True
+        if not self.inner.should_compact(env, s["inner"], t, h, g):
+            return False
+        saving_per_call = hold_rate(env) * max(h - post_history(env, h), 0.0)
+        return saving_per_call * (1 + self.remaining_fn(t)) >= buy
+
+
+def empirical_residual(lengths, min_tail=5):
+    """Predicted calls remaining after call t: E[T - t - 1 | T > t + 1] over training session
+    lengths. With fewer than min_tail longer sessions it falls back to the Lindy estimate
+    t + 1 (a session that has lasted t + 1 calls is expected to last about as long again)."""
+    lengths = np.sort(np.asarray(lengths, dtype=float))
+    table = {}
+    def f(t):
+        if t not in table:
+            tail = lengths[lengths > t + 1]
+            table[t] = float(tail.mean() - (t + 1)) if len(tail) >= min_tail else float(t + 1)
+        return table[t]
+    return f
+
+
 def hindsight_optimum(env, g, beam=6):
     """Offline schedule optimized with full knowledge of g (beam DP over compaction
     times; state = segment start and post-compaction history)."""

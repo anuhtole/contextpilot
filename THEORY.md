@@ -108,3 +108,17 @@ With `S = 40k` and `σ = 11k`:
 - 5-minute entries (`w = 1.25`): `H > 436k`.
 
 Simulated idle gaps are Bernoulli at the rates measured in our sessions: 1.5% of gaps exceed an hour and 3.5% exceed 5 minutes. Results are in `results/cold_cache.txt`.
+
+## 5. Horizon gate (finite sessions)
+
+A compaction at history `H`, with `R` calls left after the current one, saves `h (H − s)(1 + R)` of rent if no further compaction follows, and costs `K(H)`. The steady-state rule ignores `R`, so the gate takes a compaction proposed by the inner rule only when
+
+```
+h (H − s)(1 + R̂) ≥ K(H)
+```
+
+- With an oracle `R`, the gate never costs more than its inner rule under steady growth. This is checked in `tests/test_horizon.py`.
+- With a pessimistic predictor, a fallback compacts once rent since the last compaction reaches `K/λ`.
+- Near H\* at Claude Code prices, the condition needs only `R ≳ 16` calls.
+- Session lengths are heavy-tailed, so learned mean-residual predictors always clear that bar and the gate is inert.
+- Even with an oracle the gain is 1–2% (`results/horizon.txt`).

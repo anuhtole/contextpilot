@@ -1,0 +1,389 @@
+{
+ "rows": [
+  {
+   "setting": "real Claude Code replay, 1000k, Claude Code prices",
+   "n": 25,
+   "base": 37684301.60000001,
+   "policies": {
+    "150k context": {
+     "vs_92": -0.20939927542666759,
+     "vs_best_fixed": 0.014745395984758325,
+     "compactions": 1.48,
+     "vs_optimum": 0.033634667964503207
+    },
+    "break-even": {
+     "vs_92": -0.21824329895502192,
+     "vs_best_fixed": 0.0033939870137866812,
+     "compactions": 1.28,
+     "vs_optimum": 0.02207195490459024
+    },
+    "learned ski rental (hazard)": {
+     "vs_92": -0.2081679510281813,
+     "vs_best_fixed": 0.016325815437323365,
+     "compactions": 1.96,
+     "vs_optimum": 0.035244506592557734
+    },
+    "steady-state": {
+     "vs_92": -0.21401084822015126,
+     "vs_best_fixed": 0.008826387672488556,
+     "compactions": 1.36,
+     "vs_optimum": 0.027605478558233587
+    },
+    "steady-state, recent g": {
+     "vs_92": -0.21740654867277698,
+     "vs_best_fixed": 0.004467965913762084,
+     "compactions": 1.36,
+     "vs_optimum": 0.023165925695755707
+    },
+    "horizon-gated": {
+     "vs_92": -0.2140682010145042,
+     "vs_best_fixed": 0.008752774681496156,
+     "compactions": 1.36,
+     "vs_optimum": 0.027530495276906874
+    },
+    "horizon-gated, recent g": {
+     "vs_92": -0.21740654867277698,
+     "vs_best_fixed": 0.004467965913762084,
+     "compactions": 1.36,
+     "vs_optimum": 0.023165925695755707
+    },
+    "horizon-gated, recent g, oracle": {
+     "vs_92": -0.22731305042946615,
+     "vs_best_fixed": -0.00824714645011837,
+     "compactions": 1.04,
+     "vs_optimum": 0.01021412419128409
+    }
+   },
+   "best_fixed_vs_92": -0.22088759633533983,
+   "optimum_vs_92": -0.2351255728194258
+  },
+  {
+   "setting": "real Claude Code replay, 200k, Claude Code prices",
+   "n": 25,
+   "base": 29771410.950000003,
+   "policies": {
+    "150k context": {
+     "vs_92": 0.008439178459561658,
+     "vs_best_fixed": 0.008465777728010382,
+     "compactions": 1.6,
+     "vs_optimum": 0.031606868746693495
+    },
+    "break-even": {
+     "vs_92": -0.002094242362403187,
+     "vs_best_fixed": -0.0020679209305302093,
+     "compactions": 1.48,
+     "vs_optimum": 0.020831455113976993
+    },
+    "learned ski rental (hazard)": {
+     "vs_92": 0.01129111920709902,
+     "vs_best_fixed": 0.011317793700250656,
+     "compactions": 2.12,
+     "vs_optimum": 0.03452432943967487
+    },
+    "steady-state": {
+     "vs_92": 0.002031756240965299,
+     "vs_best_fixed": 0.002058186502945869,
+     "compactions": 1.48,
+     "vs_optimum": 0.025052243626156878
+    },
+    "steady-state, recent g": {
+     "vs_92": 2.1987537006440405e-05,
+     "vs_best_fixed": 4.836478797920485e-05,
+     "compactions": 1.52,
+     "vs_optimum": 0.022996302877441366
+    },
+    "horizon-gated": {
+     "vs_92": 0.001959159748859962,
+     "vs_best_fixed": 0.001985588095986923,
+     "compactions": 1.48,
+     "vs_optimum": 0.024977979316020527
+    },
+    "horizon-gated, recent g": {
+     "vs_92": 2.1987537006440405e-05,
+     "vs_best_fixed": 4.836478797920485e-05,
+     "compactions": 1.52,
+     "vs_optimum": 0.022996302877441366
+    },
+    "horizon-gated, recent g, oracle": {
+     "vs_92": -0.012721227779095456,
+     "vs_best_fixed": -0.012695186651720647,
+     "compactions": 1.2,
+     "vs_optimum": 0.009960327351292486
+    }
+   },
+   "best_fixed_vs_92": -2.637597530430469e-05,
+   "optimum_vs_92": -0.02245786741927991
+  },
+  {
+   "setting": "real high-growth runs (auto growth), 1M, Claude Code prices",
+   "n": 4,
+   "base": 6488465.300000001,
+   "policies": {
+    "150k context": {
+     "vs_92": -0.07139761539604772,
+     "vs_best_fixed": 0.00910492447771527,
+     "compactions": 2.0,
+     "vs_optimum": 0.010621031979325846
+    },
+    "break-even": {
+     "vs_92": -0.04665133217249395,
+     "vs_best_fixed": 0.03599651626924261,
+     "compactions": 2.0,
+     "vs_optimum": 0.03755302645154224
+    },
+    "learned ski rental (hazard)": {
+     "vs_92": -0.01768190083408483,
+     "vs_best_fixed": 0.06747736997755571,
+     "compactions": 3.0,
+     "vs_optimum": 0.0690811778761844
+    },
+    "steady-state": {
+     "vs_92": -0.022685742035177592,
+     "vs_best_fixed": 0.06203973501016247,
+     "compactions": 3.25,
+     "vs_optimum": 0.06363537325371849
+    },
+    "steady-state, recent g": {
+     "vs_92": -0.05140738750656526,
+     "vs_best_fixed": 0.030828148259131494,
+     "compactions": 2.0,
+     "vs_optimum": 0.03237689334057681
+    },
+    "horizon-gated": {
+     "vs_92": -0.022685742035177592,
+     "vs_best_fixed": 0.06203973501016247,
+     "compactions": 3.25,
+     "vs_optimum": 0.06363537325371849
+    },
+    "horizon-gated, recent g": {
+     "vs_92": -0.05140738750656526,
+     "vs_best_fixed": 0.030828148259131494,
+     "compactions": 2.0,
+     "vs_optimum": 0.03237689334057681
+    },
+    "horizon-gated, recent g, oracle": {
+     "vs_92": -0.06932783473466397,
+     "vs_best_fixed": 0.011354138880585785,
+     "compactions": 1.0,
+     "vs_optimum": 0.012873625664911348
+    }
+   },
+   "best_fixed_vs_92": -0.07977618374563855,
+   "optimum_vs_92": -0.0811566796851022
+  },
+  {
+   "setting": "synthetic local (300), 1M, Claude Code (0.05x read, 1h 2x write)",
+   "n": 300,
+   "base": 397399791.75,
+   "policies": {
+    "150k context": {
+     "vs_92": -0.20617658665393612,
+     "vs_best_fixed": 0.003631643519218075,
+     "compactions": 1.1933333333333334
+    },
+    "break-even": {
+     "vs_92": -0.2050756526346369,
+     "vs_best_fixed": 0.005023555373440125,
+     "compactions": 1.09
+    },
+    "learned ski rental (hazard)": {
+     "vs_92": -0.19142395599909123,
+     "vs_best_fixed": 0.02228340750277691,
+     "compactions": 1.7366666666666666
+    },
+    "steady-state": {
+     "vs_92": -0.20530215401150875,
+     "vs_best_fixed": 0.004737189482352244,
+     "compactions": 1.1366666666666667
+    },
+    "steady-state, recent g": {
+     "vs_92": -0.20688595353296368,
+     "vs_best_fixed": 0.0027347903467276335,
+     "compactions": 1.14
+    },
+    "horizon-gated": {
+     "vs_92": -0.20535727092514255,
+     "vs_best_fixed": 0.00466750511970182,
+     "compactions": 1.1366666666666667
+    },
+    "horizon-gated, recent g": {
+     "vs_92": -0.20688595353296368,
+     "vs_best_fixed": 0.0027347903467276335,
+     "compactions": 1.14
+    },
+    "horizon-gated, recent g, oracle": {
+     "vs_92": -0.21476282819415948,
+     "vs_best_fixed": -0.007223949253416184,
+     "compactions": 0.9033333333333333
+    }
+   },
+   "best_fixed_vs_92": -0.209049038586971
+  },
+  {
+   "setting": "synthetic local (300), 1M, cached",
+   "n": 300,
+   "base": 537663063.5,
+   "policies": {
+    "150k context": {
+     "vs_92": -0.3610677920411023,
+     "vs_best_fixed": 0.011149541725448131,
+     "compactions": 1.1933333333333334
+    },
+    "break-even": {
+     "vs_92": -0.3637909257272235,
+     "vs_best_fixed": 0.0068400150738261445,
+     "compactions": 1.7866666666666666
+    },
+    "learned ski rental (hazard)": {
+     "vs_92": -0.35444756044693415,
+     "vs_best_fixed": 0.021626465660686822,
+     "compactions": 2.683333333333333
+    },
+    "steady-state": {
+     "vs_92": -0.36759964467970196,
+     "vs_best_fixed": 0.0008124829266169531,
+     "compactions": 1.7933333333333332
+    },
+    "steady-state, recent g": {
+     "vs_92": -0.36741862982745144,
+     "vs_best_fixed": 0.0010989500707343502,
+     "compactions": 1.86
+    },
+    "horizon-gated": {
+     "vs_92": -0.3677905277939927,
+     "vs_best_fixed": 0.0005103986504857438,
+     "compactions": 1.7966666666666666
+    },
+    "horizon-gated, recent g": {
+     "vs_92": -0.36741862982745144,
+     "vs_best_fixed": 0.0010989500707343502,
+     "compactions": 1.86
+    },
+    "horizon-gated, recent g, oracle": {
+     "vs_92": -0.3745303158620269,
+     "vs_best_fixed": -0.010155730762664517,
+     "compactions": 1.5333333333333334
+    }
+   },
+   "best_fixed_vs_92": -0.3681130420445926
+  },
+  {
+   "setting": "synthetic local (300), 1M, uncached",
+   "n": 300,
+   "base": 3833886915.0,
+   "policies": {
+    "150k context": {
+     "vs_92": -0.5639082998357035,
+     "vs_best_fixed": 0.24841444037586924,
+     "compactions": 1.1933333333333334
+    },
+    "break-even": {
+     "vs_92": -0.6465433222095962,
+     "vs_best_fixed": 0.011852370578428584,
+     "compactions": 4.713333333333333
+    },
+    "learned ski rental (hazard)": {
+     "vs_92": -0.6458816075956169,
+     "vs_best_fixed": 0.013746683355279066,
+     "compactions": 7.006666666666667
+    },
+    "steady-state": {
+     "vs_92": -0.6496288707044453,
+     "vs_best_fixed": 0.0030192666784956135,
+     "compactions": 4.863333333333333
+    },
+    "steady-state, recent g": {
+     "vs_92": -0.6501718843733815,
+     "vs_best_fixed": 0.001464763106504119,
+     "compactions": 4.99
+    },
+    "horizon-gated": {
+     "vs_92": -0.6497641540373915,
+     "vs_best_fixed": 0.0026319865116668506,
+     "compactions": 4.886666666666667
+    },
+    "horizon-gated, recent g": {
+     "vs_92": -0.6502930389640875,
+     "vs_best_fixed": 0.0011179297673273858,
+     "compactions": 4.993333333333333
+    },
+    "horizon-gated, recent g, oracle": {
+     "vs_92": -0.6517871151136966,
+     "vs_best_fixed": -0.003159212493097363,
+     "compactions": 4.64
+    }
+   },
+   "best_fixed_vs_92": -0.6506835502215119
+  },
+  {
+   "setting": "SWE-agent (1500), 128k, Claude Code prices",
+   "n": 1500,
+   "base": 84712672.0,
+   "policies": {
+    "150k context": {
+     "vs_92": 0.0,
+     "vs_best_fixed": 0.0006633653747267765,
+     "compactions": 0.0
+    },
+    "break-even": {
+     "vs_92": 0.002177779848568484,
+     "vs_best_fixed": 0.0028425898870407806,
+     "compactions": 0.25666666666666665
+    },
+    "learned ski rental (hazard)": {
+     "vs_92": 0.023331031867345642,
+     "vs_best_fixed": 0.024009874240769946,
+     "compactions": 0.44866666666666666
+    },
+    "steady-state": {
+     "vs_92": 0.005728782229888596,
+     "vs_best_fixed": 0.00639594788038611,
+     "compactions": 0.24066666666666667
+    },
+    "steady-state, recent g": {
+     "vs_92": 0.0027926778180245027,
+     "vs_best_fixed": 0.0034578957585185144,
+     "compactions": 0.24133333333333334
+    },
+    "horizon-gated": {
+     "vs_92": 0.005712515478203617,
+     "vs_best_fixed": 0.006379670337901322,
+     "compactions": 0.24066666666666667
+    },
+    "horizon-gated, recent g": {
+     "vs_92": 0.0027926778180245027,
+     "vs_best_fixed": 0.0034578957585185144,
+     "compactions": 0.24133333333333334
+    },
+    "horizon-gated, recent g, oracle": {
+     "vs_92": -0.016867752087904808,
+     "vs_best_fixed": -0.016215576195862558,
+     "compactions": 0.09866666666666667
+    }
+   },
+   "best_fixed_vs_92": -0.0006629256128292127
+  }
+ ],
+ "worst_case_1M": {
+  "steady-state": {
+   "max": 1.151674701239482,
+   "p99": 1.121563586274809,
+   "mean": 1.0192516425819995
+  },
+  "break-even": {
+   "max": 1.1330944930400444,
+   "p99": 1.1066241021548284,
+   "mean": 1.013408365862185
+  },
+  "horizon-gated, recent g (Lindy)": {
+   "max": 1.1330944930400444,
+   "p99": 1.1028178835105387,
+   "mean": 1.0144696540790352
+  },
+  "horizon-gated (Lindy)": {
+   "max": 1.151674701239482,
+   "p99": 1.121563586274809,
+   "mean": 1.0192516425819995
+  }
+ }
+}

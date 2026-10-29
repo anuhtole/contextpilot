@@ -30,7 +30,9 @@ We then ran 13 sessions engineered to cross $H^\star$ (about 110 calls, peaking 
 \item At 0.05$\times$ cache reads, held history is only 41\% of the bill.
 \item Real sessions back-load their growth, leaving too little horizon after $H^\star$ for compaction to pay off.
 \end{itemize}
-Steady-state savings are therefore an upper envelope, and the remaining lever is awareness of the session's horizon.
+Steady-state savings are therefore an upper envelope.
+
+Gating compactions on a predicted remaining horizon is worth at most 1--2 points even with an oracle. Tracking recent growth halves the online rule's gap on the real runs, and adaptive rules earn their place through robustness across price regimes: a fixed 150k loses 25\% without caching.
 \end{abstract}
 
 \section{Introduction}
@@ -284,12 +286,7 @@ Every arm fixed all 20 bugs and violated no rule.
 \item \textbf{The model predicted the result.} Replaying each \emph{auto} run's real growth through the cost model predicts $-2.1\%$ for the online rule and $-7.0\%$ for 150k. A hindsight-best threshold could save only $-8.0\%$ (4--12\% per session). Per-run fidelity is 8.1\% mean absolute error over all 13 runs, including runs with native partial compaction.
 \end{itemize}
 
-\textbf{The steady-state rule is not horizon-aware.}
-\begin{itemize}
-\item Its running growth estimate is depressed by the slow early phase, so it fires earlier and more often than 150k (3 compactions vs.\ 2).
-\item Its last compaction comes too late in the session to repay itself.
-\item On the same traces, break-even ($-4.5\%$ simulated) does better.
-\end{itemize}
+\textbf{The steady-state rule misreads back-loaded growth.} Its session-mean growth estimate is depressed by the slow early phase, so it fires earlier and more often than 150k (3 compactions vs.\ 2). On the same traces, break-even ($-4.5\%$ simulated) does better.
 
 \textbf{Compaction loses irrecoverable detail even when task success does not move.} Exact-expression recall fell from 19.0 to 17.5 to 15.0 of 20 at 0, 2 and 3 compactions.
 
@@ -319,10 +316,37 @@ Session & Arm & Cost (\$) & vs.\ auto & Compactions & Recall /12 & Untagged\\
 \label{fig:hstar}
 \end{figure}
 
+\paragraph{Horizon-aware rules (simulation).}
+We tested two extensions of the online rule.
+\begin{itemize}
+\item \textbf{Horizon gate.} A compaction proposed by the inner trigger is taken only if the rent it saves over the predicted remainder repays its cost: $h\,(H-s)(1+\hat R_t)\ge K(H)$.
+  \begin{itemize}
+  \item $\hat R_t$ is the mean residual session length, fit out of sample. Beyond the data it falls back to the Lindy estimate $t+1$.
+  \item A fallback compacts anyway once rent since the last compaction reaches $K/\lambda$ ($\lambda=0.5$).
+  \end{itemize}
+\item \textbf{Recent growth.} The online rule's target computed from an EWMA of growth (half-life 10 calls).
+\end{itemize}
+Table~\ref{tab:horizon} reports the results.
+\begin{itemize}
+\item \textbf{The learned gate never changes a decision.} Session lengths are heavy-tailed, so the predicted remainder always exceeds the roughly 16 calls a compaction near $H^\star$ needs to repay itself.
+\item \textbf{Even an oracle gate gains only 1--2 points} over the best fixed threshold. That bounds the value of any horizon predictor in this cost model.
+\item \textbf{Recent growth is the useful fix.} It halves the online rule's gap on the real back-loaded runs ($+6.2\%\to+3.1\%$) and is neutral on i.i.d.\ synthetic growth.
+\item \textbf{Worst case.} Over adversarial prefixes at 1M its ratio to the offline optimum is $1.133$, matching break-even (steady-state: $1.152$).
+\item \textbf{Learned ski rental}~\cite{purohit18} with the same predictor is the weakest adaptive rule throughout.
+\end{itemize}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Cost vs.\ the best fixed threshold in hindsight (\%; lower is better). The gate columns add the horizon gate to the recent-growth rule. Length predictors are fit out of sample (leave-one-out for the real replay). The high-growth row uses the uncompacted runs' real growth and a predictor fit only on the 25 local sessions.}
+\label{tab:horizon}
+\resizebox{\linewidth}{!}{\input{table_horizon.tex}}
+\end{table}
+
 \section{Implications}
 \begin{enumerate}
 \item \textbf{Set triggers from economics, not window size.} $H^\star$ (Fig.~\ref{fig:hstar}) depends on growth, summary size and prices, not the window. At 1M windows, near-limit triggers cost about 20\% more per session in trace-calibrated simulation (Fig.~\ref{fig:flat}). In live back-loaded sessions the realized gap was about 10\%.
-\item \textbf{Expect single-digit savings from trigger placement when caching is cheap and sessions are short after $H^\star$.} The steady-state gap is an upper envelope. The cost model's counterfactual tells a deployer in advance which regime they are in. The open lever is the remaining horizon, i.e.\ predicting how much session is left.
+\item \textbf{Expect single-digit savings from trigger placement when caching is cheap and sessions are short after $H^\star$.} The steady-state gap is an upper envelope. The cost model's counterfactual tells a deployer in advance which regime they are in. Predicting the remaining horizon does not help much (at most 1--2 points even with an oracle). Tracking \emph{recent} growth does.
 \item \textbf{Today's 150k API default is about right for Claude-priced coding agents with $\sim$11k summaries.} It should move as $\sqrt{g\,A/h}$ when growth, summary size or cache tier change. The online rule does this automatically.
 \item \textbf{Do not compact early.} Each compaction costs a summary call plus a cache rewrite, and in our pilot premature compaction raised bills by 32--143\%.
 \item \textbf{With 1-hour caching, compact when an idle gap expires the cache} once history exceeds about $118$k.

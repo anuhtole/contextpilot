@@ -43,16 +43,54 @@ Outputs: `results/highgrowth/` (ledger, streams, `summary.json`), `results/highg
    - best fixed trigger in hindsight: −8.0%
    - Per-run fidelity is 8.1% MAE over all 13 runs, including runs with native partial compaction.
    - Even an oracle threshold could save only 4–12% on these sessions.
-4. **eoq is not horizon-aware.**
-   - Its running estimate of g is depressed by the slow small-bug phase, so it fires earlier and more often (3 compactions vs 2).
-   - Its last compaction comes too close to the end of the session to recoup.
+4. **eoq misreads back-loaded growth.**
+   - Its session-mean estimate of g is depressed by the slow small-bug phase, so it fires earlier and more often (3 compactions vs 2).
    - On the same traces break-even (−4.5% simulated) beats eoq (−2.1%), and a fixed 150k beats both.
+   - Tracking recent growth fixes most of this; see the horizon section below.
 5. **Quality.** Exact-expression recall fell with the number of compactions: 19.0, 17.5 and 15.0 of 20. Function recall and every rule were intact. Compaction loses irrecoverable detail even when task success is unaffected.
 
 **What this changes in the paper's claim.**
 - The 20–40% steady-state savings are an upper envelope for long sessions that keep growing.
-- For finite, back-loaded coding sessions at Claude cache prices, trigger placement is worth single-digit percent, and the open problem is horizon awareness, i.e. the remaining session length.
+- For finite, back-loaded coding sessions at Claude cache prices, trigger placement is worth single-digit percent.
+- We first guessed that horizon awareness was the missing lever. The simulation below says it is worth at most 1–2 points even with an oracle.
 - The cost model's counterfactual predictions are reliable enough to make that call per workload.
+
+## Horizon-aware rules (simulation only, 2026-10-29)
+
+Code: `sim.HorizonGated`, `sim.ClosedFormRecent`, `sim.empirical_residual` (tests in `tests/test_horizon.py`). Experiment: `experiments/horizon.py` → `results/horizon.{txt,json}`, paper table `table_horizon.tex`.
+
+**The rules.**
+- **Horizon gate.** Compact only when the inner trigger fires and the rent saved over the rest of the session repays the buy: `hold_rate·(h − s)·(1 + R̂) ≥ K(h)`.
+  - R̂ is predicted from session lengths seen out of sample, with a Lindy fallback (about as many calls again) beyond the data.
+  - Robustness fallback: compact anyway once rent since the last compaction reaches K/λ, with λ = 0.5.
+- **Recent g.** The steady-state target computed from an EWMA of growth (half-life 10 calls) instead of the session mean.
+
+**Results** (cost vs the best fixed threshold chosen in hindsight; lower is better):
+
+| Setting | steady-state | + recent g | + gate (learned) | + gate (oracle) | 150k | break-even |
+|---|---|---|---|---|---|---|
+| real high-growth runs (4), 1M | +6.2% | +3.1% | +3.1% | +1.1% | +0.9% | +3.6% |
+| real replay (25), 1M | +0.9% | +0.4% | +0.4% | −0.8% | +1.5% | +0.3% |
+| real replay (25), 200k | +0.2% | +0.0% | +0.0% | −1.3% | +0.8% | −0.2% |
+| synthetic (300), 1M, Claude Code | +0.5% | +0.3% | +0.3% | −0.7% | +0.4% | +0.5% |
+| synthetic, 1M, cached 0.1x | +0.1% | +0.1% | +0.1% | −1.0% | +1.1% | +0.7% |
+| synthetic, 1M, uncached | +0.3% | +0.1% | +0.1% | −0.3% | +24.8% | +1.2% |
+| SWE-agent (1500), 128k | +0.6% | +0.3% | +0.3% | −1.6% | +0.1% | +0.3% |
+
+The "+ gate" columns add the gate on top of recent g.
+
+1. **The learned horizon gate never changes a decision.**
+   - Session lengths are heavy-tailed, so predicted remaining life always exceeds the roughly 16 calls a compaction near H\* needs to repay itself.
+   - Its results equal its inner rule in every setting.
+2. **Even perfect horizon information is worth only 1–2 points.** The oracle gate's gain is the ceiling for any horizon predictor.
+3. **Tracking recent growth is the useful fix.**
+   - It halves the steady-state rule's gap on the real back-loaded runs, from +6.2% to +3.1%.
+   - It is neutral on synthetic sessions, whose growth is i.i.d. by construction.
+4. **Worst case.** Adversarial prefixes at 1M give max cost / offline optimum of:
+   - 1.133 for recent g with the gate, the same as break-even;
+   - 1.152 for steady-state.
+5. **The existing learned ski rental** (break-even with a length predictor) is the weakest adaptive rule in every setting, at +1.1% to +6.7%.
+6. **Robustness, not raw savings, is the case for adaptive rules.** A fixed 150k is within 1.5% of best at Claude prices but +24.8% uncached. Adaptive rules stay within about 3% everywhere.
 
 ## Design: high-growth real sessions (written 2026-10-28, before the runs)
 

@@ -1,0 +1,13 @@
+\begin{tabular}{lrrrrrr}
+\toprule
+Setting & steady-state & + recent $g$ & + gate (learned) & + gate (oracle) & 150k & break-even\\
+\midrule
+real Claude Code replay, 1000k & $+0.9$ & $+0.4$ & $+0.4$ & $-0.8$ & $+1.5$ & $+0.3$\\
+real Claude Code replay, 200k & $+0.2$ & $+0.0$ & $+0.0$ & $-1.3$ & $+0.8$ & $-0.2$\\
+real high-growth runs (auto growth), 1M & $+6.2$ & $+3.1$ & $+3.1$ & $+1.1$ & $+0.9$ & $+3.6$\\
+synthetic local (300), 1M, Claude Code & $+0.5$ & $+0.3$ & $+0.3$ & $-0.7$ & $+0.4$ & $+0.5$\\
+synthetic local (300), 1M, cached & $+0.1$ & $+0.1$ & $+0.1$ & $-1.0$ & $+1.1$ & $+0.7$\\
+synthetic local (300), 1M, uncached & $+0.3$ & $+0.1$ & $+0.1$ & $-0.3$ & $+24.8$ & $+1.2$\\
+SWE-agent (1500), 128k & $+0.6$ & $+0.3$ & $+0.3$ & $-1.6$ & $+0.1$ & $+0.3$\\
+\bottomrule
+\end{tabular}

@@ -36,12 +36,18 @@ The parameters were measured on headless Claude Code: about 11k tokens remain af
      - But at 0.05x reads rent is only 41% of the bill, and the 2x cache rewrite plus summary output win most of it back.
      - These sessions also put 87–89% of their growth in the last 40% of calls, so there is little session left after H\* in which a compaction can pay off.
    - **The cost model called it:** replaying each run's real growth predicted −2.1% for the online rule and −7.0% for 150k. Even a hindsight-best threshold could save only 4–12%. Fidelity was 8.1% MAE over 13 runs.
-   - **The steady-state rule is not horizon-aware.** It compacted 3 times vs 2 for 150k, and break-even beats it on the same traces.
+   - **The steady-state rule misreads back-loaded growth.** A slow start depresses its growth estimate, so it compacted 3 times vs 2 for 150k. Break-even beats it on the same traces.
    - **Compaction costs irrecoverable detail:** exact-expression recall was 19.0, 17.5 and 15.0 of 20 at 0, 2 and 3 compactions. Bugs fixed and rules followed were unaffected.
    - **Claude Code's `--autocompact N` is a window size:** it fires about 70k below N.
    - Details: [`EVAL_PLAN.md`](EVAL_PLAN.md) and `results/highgrowth_summary.txt`.
 
-**What that means.** The 20–40% steady-state gap is an upper envelope that only long, steadily growing sessions realize. For typical, back-loaded coding sessions at Claude cache prices, trigger placement is worth single-digit percent. The next lever is the remaining horizon, not a better H\* estimate.
+8. **Horizon awareness is worth little, and growth tracking more** (simulation, `experiments/horizon.py`).
+   - **The rule tested:** a gate that compacts only if the rent saved over the predicted rest of the session repays the buy. With out-of-sample length predictors it never changes a decision.
+   - **Even an oracle gains only 1–2 points** over the best fixed threshold.
+   - **Tracking recent growth (an EWMA) helps:** it halves the online rule's gap on the real back-loaded runs (+6.2% → +3.1% vs best fixed) and keeps the worst case at 1.13x.
+   - **The case for adaptive rules is robustness:** a fixed 150k is near-best at Claude prices but +24.8% without caching.
+
+**What that means.** The 20–40% steady-state gap is an upper envelope that only long, steadily growing sessions realize. For typical, back-loaded coding sessions at Claude cache prices, trigger placement is worth single-digit percent.
 
 The tables in `paper/` are generated from `results/*.json` by `experiments/make_tables.py`.
 
