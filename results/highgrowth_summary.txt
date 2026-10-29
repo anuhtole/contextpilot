@@ -1,0 +1,23 @@
+13 runs, total $39.83
+
+arm     n  mean $      n_fixed recall_expre recall_funct c1_untagged_ c2_new_files c5_rule5_vio audit_lineco audit_lastde  compactions peak_context        calls
+150k    5   2.861         20.0         17.2         20.0          0.0          0.0          0.0          8.0          8.0          2.0     180383.8        109.8
+auto    4   3.246         20.0         19.0         20.0          0.0          0.0          0.0          8.0          8.0          0.0     365369.8        110.8
+eoq     4   3.135         20.0         15.0         19.8          0.0          0.0          0.0          8.0          8.0          3.0     150670.0        114.5
+
+eoq vs auto: -2.8% (95% CI -11.1 to +9.2), sign-test p=0.312, n=4, each -7% +15% -6% -13%
+150k vs auto: -9.8% (95% CI -18.0 to -1.6), sign-test p=0.312, n=4, each -22% +0% -3% -14%
+eoq vs 150k: +8.1% (95% CI -0.7 to +16.8), sign-test p=0.938, n=4, each +19% +15% -3% +1%
+
+simulator fidelity: mean abs error 8.1% over 13 runs
+
+bill breakdown, mean $ per run over h1, h2, h3, h5 (CLI modelUsage totals):
+  auto  read $1.34  write $1.36  output $0.54  input $0.00
+  eoq   read $0.82  write $1.59  output $0.72  input $0.01
+  150k  read $0.84  write $1.47  output $0.60  input $0.01
+
+counterfactual policies on each auto run's real growth (simulated % vs auto):
+  h1: eoq -6.5%  150k -10.2%  break-even -8.3%  best fixed -11.7%  late growth share +87.6%
+  h2: eoq +1.8%  150k -2.5%  break-even +1.9%  best fixed -3.8%  late growth share +89.0%
+  h3: eoq -2.7%  150k -6.6%  break-even -5.0%  best fixed -7.8%  late growth share +87.0%
+  h5: eoq -1.1%  150k -8.8%  break-even -6.5%  best fixed -8.8%  late growth share +88.1%

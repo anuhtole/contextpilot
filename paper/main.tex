@@ -23,7 +23,14 @@ We measure the model's parameters on headless Claude Code. Compaction leaves abo
 
 An online rule that estimates growth and solves for $H^\star$ stays within 1.3\% of the best threshold tuned in hindsight across 17 dataset, price and window settings (25 Claude Code sessions; 1{,}500 sampled SWE-agent trajectories). A single fixed threshold tuned once loses up to 13\% when prices or summary costs change.
 
-In an 18-run real-agent pilot, compacting early raised the bill by 32--143\%. Replaying each run's measured growth through the cost model reproduced its bill to within 7.9\% mean absolute error.
+In an 18-run real-agent pilot, compacting early raised the bill by 32--143\%.
+
+We then ran 13 sessions engineered to cross $H^\star$ (about 110 calls, peaking near 365k tokens). There the savings were only single-digit: $-9.8\%$ for a 150k trigger and $-2.8\%$ for the online rule, against a pre-registered $-35\%$. The cost model nevertheless predicted the outcome from each run's real growth ($-7.0\%$ and $-2.1\%$; 8.1\% mean absolute error per run). Two effects explain the gap:
+\begin{itemize}
+\item At 0.05$\times$ cache reads, held history is only 41\% of the bill.
+\item Real sessions back-load their growth, leaving too little horizon after $H^\star$ for compaction to pay off.
+\end{itemize}
+Steady-state savings are therefore an upper envelope, and the remaining lever is awareness of the session's horizon.
 \end{abstract}
 
 \section{Introduction}
@@ -59,6 +66,7 @@ We make the following contributions.
   \item Trace-calibrated simulation against product defaults and an offline optimum.
   \item Empirical worst-case ratios.
   \item A real-agent pilot that drives Claude Code with an external \texttt{/compact} controller and validates the cost model against real bills.
+  \item A pre-registered real-session test past $H^\star$ whose predicted saving did not materialize. Its counterfactual analysis shows why: rent share and back-loaded growth.
   \end{itemize}
 \end{enumerate}
 
@@ -237,6 +245,54 @@ Table~\ref{tab:pilot} reports the results. In summary:
 \end{itemize}
 The pilot does not demonstrate savings from the economic rule, because no session grew past $H^\star$.
 
+\paragraph{Real sessions past $H^\star$.}
+\textbf{Workload.} We extended the task so that sessions cross $H^\star$:
+\begin{itemize}
+\item Eight further bugs sit in large standard-library modules (1.4--3.3k lines) and are reported by symptom only.
+\item Eight follow-up requests ask for an end-to-end audit of one module each. Each audit must report the module's exact line count and last top-level definition, which certifies that the whole file was read.
+\item A rule introduced at message 10 tests retention of instructions given mid-session.
+\end{itemize}
+Sessions ran about 110 calls at 5.4k tokens of growth per call, peaking near 365k under \emph{auto}.
+
+\textbf{Design.} Five orderings were planned, each running every arm, so comparisons are paired. One ordering was lost to API rate limiting. We compare three arms:
+\begin{itemize}
+\item \emph{auto}, the CLI default on a 1M window, which never fires;
+\item the online rule;
+\item a 150k total-context trigger.
+\end{itemize}
+Claude Code's own \texttt{--autocompact 150000} is a window size: it fired at 69--85k, so the 150k arm used the external controller instead.
+
+Table~\ref{tab:hg} reports the results. Before running we predicted $-35\% \pm 6\%$ for the online rule versus \emph{auto}, from uniform 4k-per-call synthetic growth. We observed:
+\begin{itemize}
+\item $-2.8\%$ for the online rule (paired 95\% CI $-11.1$ to $+9.2$);
+\item $-9.8\%$ for the 150k trigger ($-18.0$ to $-1.6$; sign test $p=0.31$, $n=4$).
+\end{itemize}
+Every arm fixed all 20 bugs and violated no rule.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Real sessions past $H^\star$: Claude Code (Sonnet 5.5), four paired orderings, means. Bill components in \$ per run, from the CLI's \texttt{modelUsage} totals. Recall counts exact buggy expressions reproduced at the end.}
+\label{tab:hg}
+\input{table_highgrowth.tex}
+\end{table}
+
+\textbf{Why the prediction failed while the model held.}
+\begin{itemize}
+\item \textbf{Rent behaved as modeled.} Compaction cut cache-read spend by 39\%. But at 0.05$\times$ reads, rent is only 41\% of the \emph{auto} bill. The 2$\times$ cache rewrites and summary output that compaction adds win back most of the saving.
+\item \textbf{Growth is back-loaded.} In every session 87--89\% of growth arrived in the last 40\% of calls, so little horizon remains after $H^\star$ for any compaction to recoup its cost.
+\item \textbf{The model predicted the result.} Replaying each \emph{auto} run's real growth through the cost model predicts $-2.1\%$ for the online rule and $-7.0\%$ for 150k. A hindsight-best threshold could save only $-8.0\%$ (4--12\% per session). Per-run fidelity is 8.1\% mean absolute error over all 13 runs, including runs with native partial compaction.
+\end{itemize}
+
+\textbf{The steady-state rule is not horizon-aware.}
+\begin{itemize}
+\item Its running growth estimate is depressed by the slow early phase, so it fires earlier and more often than 150k (3 compactions vs.\ 2).
+\item Its last compaction comes too late in the session to repay itself.
+\item On the same traces, break-even ($-4.5\%$ simulated) does better.
+\end{itemize}
+
+\textbf{Compaction loses irrecoverable detail even when task success does not move.} Exact-expression recall fell from 19.0 to 17.5 to 15.0 of 20 at 0, 2 and 3 compactions.
+
 \begin{table}[t]
 \centering
 \small
@@ -265,7 +321,8 @@ Session & Arm & Cost (\$) & vs.\ auto & Compactions & Recall /12 & Untagged\\
 
 \section{Implications}
 \begin{enumerate}
-\item \textbf{Set triggers from economics, not window size.} $H^\star$ (Fig.~\ref{fig:hstar}) depends on growth, summary size and prices, not the window. At 1M windows, near-limit triggers cost about 20\% more per session in our traces (Fig.~\ref{fig:flat}).
+\item \textbf{Set triggers from economics, not window size.} $H^\star$ (Fig.~\ref{fig:hstar}) depends on growth, summary size and prices, not the window. At 1M windows, near-limit triggers cost about 20\% more per session in trace-calibrated simulation (Fig.~\ref{fig:flat}). In live back-loaded sessions the realized gap was about 10\%.
+\item \textbf{Expect single-digit savings from trigger placement when caching is cheap and sessions are short after $H^\star$.} The steady-state gap is an upper envelope. The cost model's counterfactual tells a deployer in advance which regime they are in. The open lever is the remaining horizon, i.e.\ predicting how much session is left.
 \item \textbf{Today's 150k API default is about right for Claude-priced coding agents with $\sim$11k summaries.} It should move as $\sqrt{g\,A/h}$ when growth, summary size or cache tier change. The online rule does this automatically.
 \item \textbf{Do not compact early.} Each compaction costs a summary call plus a cache rewrite, and in our pilot premature compaction raised bills by 32--143\%.
 \item \textbf{With 1-hour caching, compact when an idle gap expires the cache} once history exceeds about $118$k.
@@ -274,7 +331,12 @@ Session & Arm & Cost (\$) & vs.\ auto & Compactions & Recall /12 & Untagged\\
 \section{Limitations}
 \begin{itemize}
 \item Quality enters the simulation only through re-fetch and a per-compaction penalty.
-\item The pilot is small (18 runs), uses one model and one synthetic task family, and never exceeded $H^\star$.
+\item The real-agent runs are small and use one model and one synthetic task family:
+  \begin{itemize}
+  \item 18 pilot runs that never exceeded $H^\star$;
+  \item 13 high-growth runs giving $n=4$ paired orderings, after one ordering was lost to rate limiting.
+  \end{itemize}
+  No real-session comparison reached $p<0.05$.
 \item The local traces come from one user.
 \item SWE-agent token counts and summary sizes are approximations.
 \item Idle gaps are modeled as Bernoulli.

@@ -8,11 +8,53 @@
   - After about 9 compactions, cross-compaction recall falls from 11.7 to 9.7 of 12.
   - The economic trigger correctly stays idle below H\*.
   - The cost model reproduces real bills at 7.9% mean absolute error.
-- **Not established:** that the economic trigger *saves* money in real runs, because no pilot session grew past H\* (about 60k of history).
-- **Next experiment:** high-growth sessions in which the agent reads whole files (g of 4k or more per call), comparing `auto` with `eoq`. Expect about $3–5 per run.
+- **Not established by the pilot:** that the economic trigger *saves* money in real runs, because no pilot session grew past H\* (about 60k of history).
+- **Follow-up done:** high-growth sessions that do cross H\*; see the results section below. Real savings were single-digit, and the cost model predicted that.
 - **Remaining plan:** the SWE-bench design below is still the path to a full-paper result.
 
-## Next: high-growth real sessions (designed 2026-10-28, not yet run, needs budget approval)
+## Results: high-growth real sessions (run 2026-10-28/29, $60.01 of $95 approved)
+
+Outputs: `results/highgrowth/` (ledger, streams, `summary.json`), `results/highgrowth_summary.txt`, `paper/table_highgrowth.tex`; regenerate with `experiments/highgrowth_summary.py`.
+
+**Runs.**
+- Orderings h1, h2, h3 and h5 completed under all three arms (n = 4 pairs). h4 completed only under `150k`.
+- Its `auto` and `eoq` runs stalled three times. The streams show the account's five-hour rate-limit window saturated, with overage disabled, plus repeated API retries.
+- The 12 throttled partial runs ($14.05) are kept in `ledger_timeouts.jsonl` and `timeouts/`, and are excluded from analysis.
+- Stage 0 (2 calibration runs, $2.12) measured g = 5.4k per call.
+
+**Native `--autocompact N` fires about 70k below N.** With `150000`, Claude Code compacted at 69–85k of total context: the value is a window size, not a trigger. The 150k arm therefore used the external controller at exactly 150k of total context.
+
+| Arm | $/run | vs auto (paired) | 95% CI | Read | Write | Output | Compactions | Recall /20 |
+|---|---|---|---|---|---|---|---|---|
+| auto | 3.25 | — | | 1.34 | 1.36 | 0.54 | 0 | 19.0 |
+| 150k | 2.91 | −9.8% | −18.0 to −1.6 | 0.84 | 1.47 | 0.60 | 2 | 17.5 |
+| eoq | 3.13 | −2.8% | −11.1 to +9.2 | 0.82 | 1.59 | 0.72 | 3 | 15.0 |
+
+- Every arm fixed 20/20 bugs, all audits were correct, and there were no rule-1, 2, 3 or 5 violations.
+- Sign tests are p = 0.31 for both comparisons, because h2 is positive for both. n = 5 could not have reached p < 0.05 either.
+- eoq vs 150k: +8.1% (−0.7 to +16.8).
+
+**The pre-registered prediction failed.** We predicted eoq vs auto at −35% ± 6% and observed −2.8%. The cost model did not fail: the design's growth assumption did.
+1. **Rent fell as predicted.** Compaction cut cache-read spend by 39% ($1.34 to $0.82). At 0.05x reads, however, rent is only 41% of the `auto` bill. Cache writes at 2x (1-hour entries) and summary output added $0.41, cancelling most of the saving.
+2. **Growth is back-loaded.** 87–89% of each session's growth arrived in its last 40% of calls (the audits). Sessions end soon after crossing H\*, so each compaction has little horizon left to pay back. The design assumed uniform 4k-per-call growth, which gives a long post-H\* tail.
+3. **The model predicted the real outcome.** Replaying each `auto` run's real growth through the simulator gives these predicted changes vs auto:
+   - eoq: −2.1% (observed −2.8%)
+   - 150k: −7.0% (observed −9.8%)
+   - best fixed trigger in hindsight: −8.0%
+   - Per-run fidelity is 8.1% MAE over all 13 runs, including runs with native partial compaction.
+   - Even an oracle threshold could save only 4–12% on these sessions.
+4. **eoq is not horizon-aware.**
+   - Its running estimate of g is depressed by the slow small-bug phase, so it fires earlier and more often (3 compactions vs 2).
+   - Its last compaction comes too close to the end of the session to recoup.
+   - On the same traces break-even (−4.5% simulated) beats eoq (−2.1%), and a fixed 150k beats both.
+5. **Quality.** Exact-expression recall fell with the number of compactions: 19.0, 17.5 and 15.0 of 20. Function recall and every rule were intact. Compaction loses irrecoverable detail even when task success is unaffected.
+
+**What this changes in the paper's claim.**
+- The 20–40% steady-state savings are an upper envelope for long sessions that keep growing.
+- For finite, back-loaded coding sessions at Claude cache prices, trigger placement is worth single-digit percent, and the open problem is horizon awareness, i.e. the remaining session length.
+- The cost model's counterfactual predictions are reliable enough to make that call per workload.
+
+## Design: high-growth real sessions (written 2026-10-28, before the runs)
 
 Sizing: `experiments/size_highgrowth.py` → `results/highgrowth_sizing.json`. It replays the pilot's real per-call increments rescaled to the target growth, on the fidelity-checked simulator (7.9% MAE) with the pilot's bias corrected.
 
