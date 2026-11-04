@@ -53,14 +53,40 @@ Measured this way, the model reproduces real bills to within **0.8%**: on 18 pil
    - **The gate:** it compacts only if the rent saved over the predicted remaining session repays the buy. With out-of-sample length predictors it never changes a decision, and with an oracle it adds 0.3–1.9 points.
    - **Recent-growth tracking** (EWMA; exploratory, designed after the real runs) cuts the online rule's gap on the real back-loaded growth from +5.1% to +1.6% vs best fixed. It is slightly worse elsewhere.
 
+9. **In the wild, against Claude Code's real default** (`experiments/wild.py`, `results/wild.txt`).
+   - **Data:** 40 sessions from one user's logs (16 main, 24 subagent; 2,773 calls; Opus 5.5, Fable 5.1, Fable 5; 1M windows). Every auto-compaction in them fired at 487–490k.
+   - **Savings:** replayed against a 490k trigger, the online rule would have cost **12.1% less on main sessions**, within one point of the best per-session trigger in hindsight (13.1%). It made 1 of 16 sessions dearer.
+     - A fixed trigger chosen leave-one-out picks 200k every time and saves 12.4%.
+     - The 150k API default saves 8.9% but makes 4 sessions dearer.
+   - **With cache misses:** replaying the logged misses at the same calls raises the saving to about 30%.
+   - **Cost of the saving:** five times as many compactions (60 vs 12). Their quality cost is not measured.
+   - **Fidelity is looser than in the controlled runs:** +7.5% in aggregate; per-session error median −14%, IQR −44% to +1%.
+
 **What that means.** Steady-state savings are a ceiling that only long, steadily growing sessions realize. For back-loaded coding sessions at Claude cache prices, trigger placement is worth single-digit percent. The calibrated cost model can tell a deployer in advance which regime they are in.
 
 The tables in `paper/` are generated from `results/*.json` by `experiments/make_tables.py`.
+
+## Use it on your own logs
+
+```bash
+.venv/bin/python -m contextpilot recommend          # reads ~/.claude/projects, token counts only
+.venv/bin/python -m contextpilot recommend --json   # machine-readable
+```
+
+It fits your growth rate and computes the closed-form trigger. It then replays your main sessions against the 490k default and prints:
+- the estimated saving, with how many sessions got cheaper or dearer;
+- the `autoCompactWindow` value for that trigger (about 75k above it, clamped to 100k–1M);
+- the equivalent `compact_20260112` API trigger.
+
+The estimate is cost only: it does not measure how more frequent compaction changes the work.
 
 ## Layout
 
 ```
 contextpilot/sim.py          cost model, policies (break-even, steady-state, cold-cache), offline optimum
+contextpilot/traces.py       numeric-only parsing of Claude Code transcripts
+contextpilot/replay.py       per-session replay at each session's model prices
+contextpilot/recommend.py    `python -m contextpilot recommend`
 experiments/                 trace extraction, sweeps, worst case, cold cache, fidelity, figures
 bench/                       real-agent pilot: 12-bug workspace, hidden scorer, /compact controller
 results/                     saved outputs; results/pilot/ledger.jsonl has every real run
@@ -80,6 +106,7 @@ cd experiments
 ../.venv/bin/python cold_cache.py
 ../.venv/bin/python fidelity.py      # simulator vs. real pilot bills
 ../.venv/bin/python highgrowth_summary.py && ../.venv/bin/python prediction_gap.py
+../.venv/bin/python wild.py          # in-the-wild replay of data/wild_traces.json (--refresh re-extracts yours)
 ../.venv/bin/python horizon.py && ../.venv/bin/python make_tables.py
 ../.venv/bin/python figures.py
 ```
@@ -87,6 +114,7 @@ cd experiments
 `data/` contains numeric token counts only: no message text, file paths, or tool arguments.
 
 - `experiments/extract_traces.py` rebuilds `traces.json` from your own `~/.claude/projects`.
+- `experiments/wild.py --refresh` rebuilds `wild_traces.json` the same way, excluding observer sessions and `/private/tmp` benchmark runs.
 - `experiments/extract_swe_agent.py` rebuilds the SWE-agent traces from [nebius/SWE-agent-trajectories](https://huggingface.co/datasets/nebius/SWE-agent-trajectories) (CC-BY-4.0).
 
 The pilot (`bench/run_pilot.py`) spends real API money. Each run is capped by `--max-budget-usd`, and the ledger enforces a total cap.

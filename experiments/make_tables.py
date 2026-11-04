@@ -68,8 +68,30 @@ def horizon_table():
     (OUT / "table_horizon.tex").write_text("\n".join(lines) + "\n")
 
 
+WILD_ARMS = [("API default (150k)", "fixed 150k (API default)"), ("closed form (online g)", "online steady-state"),
+             ("break-even", "break-even"), ("fixed trigger, leave-one-out", "fixed, leave-one-out"),
+             ("hindsight best fixed (per session)", "best fixed per session (hindsight)")]
+WILD_BASE = "Claude Code default (490k)"
+
+
+def wild_table():
+    res = json.loads((ROOT / "results" / "wild.json").read_text())
+    cols = [("main / warm", "main, warm"), ("main / cold", "main, misses"), ("all / warm", "all 40, warm")]
+    lines = [r"\begin{tabular}{lrrrr}", r"\toprule",
+             "Policy vs.\\ 490k default & " + " & ".join(label for _, label in cols) + r" & helped/hurt\\", r"\midrule"]
+    for key, label in WILD_ARMS:
+        cells = [pct(res[c][key]["total_usd"] / res[c][WILD_BASE]["total_usd"] - 1) for c, _ in cols]
+        base, arm = res["main / warm"][WILD_BASE]["per_session_usd"], res["main / warm"][key]["per_session_usd"]
+        rel = [a / b - 1 for a, b in zip(arm, base)]
+        helped, hurt = sum(r < -0.01 for r in rel), sum(r > 0.01 for r in rel)
+        lines.append(f"{label} & " + " & ".join(cells) + f" & {helped}/{hurt}\\\\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    (OUT / "table_wild.tex").write_text("\n".join(lines) + "\n")
+
+
 if __name__ == "__main__":
     gap = main_table()
     worst_table()
     horizon_table()
+    wild_table()
     print(f"wrote tables; worst online-vs-best gap {100 * gap:.2f}%")

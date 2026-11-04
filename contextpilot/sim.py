@@ -235,7 +235,7 @@ class ClosedForm(Policy):
         self.name = "steady-state optimum (online g)"
         self._cache = {}
     def _target(self, env, g_hat):
-        key = (id(env), round(np.log(max(g_hat, 1.0)) / 0.02))
+        key = (env, round(np.log(max(g_hat, 1.0)) / 0.02))
         if key not in self._cache:
             self._cache[key] = steady_state_optimum(env, g_hat)
         return self._cache[key]

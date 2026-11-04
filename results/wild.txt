@@ -1,0 +1,65 @@
+In-the-wild replay over 40 local Claude Code sessions (observer and /private/tmp benchmark sessions excluded).
+
+Fidelity (observed compaction schedule replayed vs logged list-price bill): logged $541.78, simulated $582.17 (+7.5%); per-session error median -14.0%, IQR [-43.9%, +1.1%]
+
+main: 16 sessions, 2316 calls, cache misses replayed; baseline Claude Code default (490k) $588.93
+  policy                                   total $   saved  median  helped  hurt
+  Claude Code default (490k)                588.93   +0.0%   -0.0%       0     0
+  API default (150k)                        407.80  +30.8%  +11.7%       9     4
+  closed form (online g)                    413.64  +29.8%  +14.3%       9     1
+  break-even                                414.09  +29.7%  +12.1%       9     2
+  fixed trigger, leave-one-out              395.66  +32.8%  +13.8%       9     3
+  hindsight best fixed (per session)        385.86  +34.5%  +15.7%      11     0
+  leave-one-out triggers chosen: 160k x16
+
+subagent: 24 sessions, 457 calls, cache misses replayed; baseline Claude Code default (490k) $28.11
+  policy                                   total $   saved  median  helped  hurt
+  Claude Code default (490k)                 28.11   +0.0%   -0.0%       0     0
+  API default (150k)                         28.15   -0.1%   -0.0%       3     5
+  closed form (online g)                     27.81   +1.1%   -0.0%       4     3
+  break-even                                 27.95   +0.6%   -0.0%       4     4
+  fixed trigger, leave-one-out               28.88   -2.7%   -0.0%       0     6
+  hindsight best fixed (per session)         27.29   +2.9%   -0.0%       4     0
+  leave-one-out triggers chosen: 140k x21, 190k x1, 200k x2
+
+all: 40 sessions, 2773 calls, cache misses replayed; baseline Claude Code default (490k) $617.04
+  policy                                   total $   saved  median  helped  hurt
+  Claude Code default (490k)                617.04   +0.0%   -0.0%       0     0
+  API default (150k)                        435.95  +29.3%   -0.0%      12     9
+  closed form (online g)                    441.45  +28.5%   -0.0%      13     4
+  break-even                                442.04  +28.4%   -0.0%      13     6
+  fixed trigger, leave-one-out              423.94  +31.3%   -0.0%      12     6
+  hindsight best fixed (per session)        413.15  +33.0%   -0.0%      15     0
+  leave-one-out triggers chosen: 160k x40
+
+main: 16 sessions, 2316 calls, cache misses ignored; baseline Claude Code default (490k) $303.65
+  policy                                   total $   saved  median  helped  hurt
+  Claude Code default (490k)                303.65   +0.0%   -0.0%       0     0
+  API default (150k)                        276.66   +8.9%   +1.0%       8     4
+  closed form (online g)                    266.90  +12.1%   +6.3%       9     1
+  break-even                                266.36  +12.3%   +5.6%       9     2
+  fixed trigger, leave-one-out              266.06  +12.4%   +6.5%       9     1
+  hindsight best fixed (per session)        263.79  +13.1%   +7.3%      10     0
+  leave-one-out triggers chosen: 200k x16
+
+subagent: 24 sessions, 457 calls, cache misses ignored; baseline Claude Code default (490k) $27.51
+  policy                                   total $   saved  median  helped  hurt
+  Claude Code default (490k)                 27.51   +0.0%   -0.0%       0     0
+  API default (150k)                         27.84   -1.2%   -0.0%       3     5
+  closed form (online g)                     27.46   +0.2%   -0.0%       4     3
+  break-even                                 27.60   -0.3%   -0.0%       4     4
+  fixed trigger, leave-one-out               27.90   -1.4%   -0.0%       0     2
+  hindsight best fixed (per session)         26.96   +2.0%   -0.0%       4     0
+  leave-one-out triggers chosen: 140k x1, 190k x1, 200k x22
+
+all: 40 sessions, 2773 calls, cache misses ignored; baseline Claude Code default (490k) $331.16
+  policy                                   total $   saved  median  helped  hurt
+  Claude Code default (490k)                331.16   +0.0%   -0.0%       0     0
+  API default (150k)                        304.49   +8.1%   -0.0%      11     9
+  closed form (online g)                    294.36  +11.1%   -0.0%      13     4
+  break-even                                293.96  +11.2%   -0.0%      13     6
+  fixed trigger, leave-one-out              293.57  +11.4%   -0.0%       9     1
+  hindsight best fixed (per session)        290.75  +12.2%   -0.0%      14     0
+  leave-one-out triggers chosen: 200k x40
+
+Pooled main-session growth 2,828 tokens/call; main-session compactions: logged 22, 490k default 12, 150k 116, closed form 58
