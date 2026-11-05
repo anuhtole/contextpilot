@@ -70,6 +70,73 @@ Code: `sim.HorizonGated`, `sim.ClosedFormRecent`, `sim.empirical_residual` (test
   - It is slightly worse on i.i.d. and replayed sessions (+0.2% → +0.4%) and on the stress test (1.155 vs 1.140).
 - **A fixed 150k** is within about 1% of the best at Claude prices but 29% worse uncached.
 
+## Design: quality cost of extra compactions (written 2026-11-03, before any runs)
+
+**Question.** The in-the-wild replay (§`sec:wild`) says a 200k trigger would have cut the user's real bills by 12% warm and 29% with cache misses. It only pays if each extra compaction costs less quality than it saves. In base-input-token units, the warm 200k saving is gone once one compaction costs about **P ≈ 180k tokens**; counting cache misses, it stays positive past P = 400k (table below, from `replay.py` with `sim.Env.penalty`). This experiment measures quality loss per compaction on a real agent, so P can be estimated rather than assumed.
+
+| P per compaction | Online, warm | 200k, warm | Online, with misses | 200k, with misses |
+|---|---|---|---|---|
+| 0 | −12.1% | −12.4% | −29.8% | −28.6% |
+| 50k | −9.2% | −8.7% | −25.5% | −26.6% |
+| 100k | −8.3% | −5.1% | −22.4% | −24.7% |
+| 200k | −3.8% | +1.9% | −10.4% | −20.8% |
+| 400k | −2.7% | +15.1% | −8.8% | −13.3% |
+
+**Design: a dose-response on compaction count.** Same workload, model (Sonnet 5.5) and harness as the high-growth runs, so the 12 completed paired runs are reused unchanged.
+
+| Arm | Trigger (external `/compact`) | Compactions (expected) | Status |
+|---|---|---|---|
+| auto | none (1M window) | 0 | h1, h2, h3, h5 done |
+| 150k | 150k context | 2 | done |
+| eoq | online H\* | 3 | done |
+| 100k | 100k context | about 4–5 | new |
+| 70k | 70k context | about 7–9 | new |
+
+- New runs: `100k` and `70k` on h1, h2, h3, h5 (8 runs), plus two new orderings h6 and h7 under all five arms (10 runs). That gives 6 orderings × 5 arms = 30 runs, 18 of them new.
+- h4 stays excluded: it never completed the paired set.
+- Exact compaction counts for the new arms are sized on the simulator from the `auto` runs' real increments before anything is spent (step 0).
+
+**Outcomes.**
+- **Primary:** exact-expression recall (/20, `score.py` `recall_expression`), regressed on the *realized* compaction count with an ordering fixed effect. The slope is "facts lost per compaction". Test: permutation of arm labels within ordering (two-sided), plus a bootstrap 95% CI on the slope.
+- **Secondary:** bugs fixed (/20; saturated so far, reported for gross harm only), rule-5 and constraint violations, the two audits, re-fetch rate ρ (reads of a file already read), and dollars per run.
+- **Cost-quality frontier:** dollars vs recall, one point per arm, with paired CIs.
+
+**Pre-registered predictions.**
+- Slope ≈ −1.3 facts per compaction (extrapolated from 19.0 → 15.0 over 3), 95% interval −0.6 to −2.0.
+- Linear, not a cliff: the 70k arm's recall is within 2 facts of the linear fit from the other four arms.
+- Bugs fixed stays ≥ 19/20 in every arm.
+- `100k` costs within ±8% of `150k`; `70k` costs more than `150k` (compaction overhead dominates below H\*).
+
+**Converting to P.** A lost fact costs the agent a re-read of the module it came from: 1.4–3.3k lines, about 15–35k tokens, so about 25k per fact. At the predicted slope, P ≈ 1.3 × 25k ≈ 33k tokens per compaction: well below 180k, so the 200k recommendation would stand. The measured ρ cross-checks this: it is the share of facts actually re-fetched rather than lost silently.
+
+**Decision rule (fixed now).**
+- If the slope's upper CI bound implies P < 180k (fewer than about 7 facts lost per compaction): keep the 200k default in `recommend` and report the measured P in the paper.
+- If P lies above 180k: `recommend` switches to the online rule with the measured penalty, and the paper says that fixed early triggers trade quality for cost.
+- A cliff (the 70k arm falls more than 2 facts below the line) is reported as a limit on compaction count, and `recommend` caps expected compactions per session at the count before the cliff.
+- Silent loss (recall falls while ρ does not rise) is the worst case for P: then P is not bounded by re-read cost, and the paper says so.
+
+**Budget and gates.** Sonnet 5.5, 1-hour cache, observed $2.7–3.5 per completed run.
+
+| Step | Runs | Estimate |
+|---|---|---|
+| 0. Sizing on the simulator; add `100k`/`70k` to `CONTEXT_TRIGGERS` and h6/h7 to the run script (free) | 0 | $0 |
+| 1. Smoke test: one `70k` run truncated at 40 messages, to confirm the trigger fires | 1 | $1 |
+| 2. Drift check: re-run h1 `auto` | 1 | $3.5 |
+| 3. Dose arms on h1, h2, h3, h5 | 8 | $25 |
+| 4. h6, h7 × 5 arms | 10 | $31 |
+
+- Estimate: about $60. Last time partial runs from rate limiting added 30% ($18 on $60).
+- **Proposed cap: $90**, enforced by the ledger (`CAP=90`), with `PER_RUN_CAP_USD` = 10 unchanged.
+- Run two sessions in parallel rather than three (`HEADROOM=20`): three in parallel caused most of the throttled runs.
+- **Gate after step 2:** if the h1 `auto` re-run differs from the original by more than 2 recall facts or 10% in cost, stop and report model drift before spending more.
+- **Gate after step 3:** if all 8 dose runs show recall within 1 fact of `auto`, step 4 still runs (it is the replication), but the cliff analysis is dropped.
+
+**Risks.**
+- Recall /20 is coarse, and bugs fixed is saturated: a real quality effect could hide under the ceiling. Changing the workload would break pairing with the 12 runs, so it stays fixed; the paper states the ceiling.
+- Compaction count is partly an outcome (the agent's growth decides it), so the regression uses realized counts and also reports the arm-level means.
+- One model only. Opus 5.5 would cost about 2× and is out of scope for this cap.
+- Model drift since 2026-10-29 is caught by the step 2 gate.
+
 ## Design: high-growth real sessions (written 2026-10-28, before the runs)
 
 Sizing: `experiments/size_highgrowth.py` → `results/highgrowth_sizing.json`. It replays the pilot's real per-call increments rescaled to the target growth, on the fidelity-checked simulator (7.9% MAE) with the pilot's bias corrected.
