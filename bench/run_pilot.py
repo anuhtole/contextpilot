@@ -1,6 +1,6 @@
 """Run headless Claude Code on a pilot workspace under one compaction trigger and score it.
 
-usage: python3 run_pilot.py <variant v1|v2|v3|v1L|v2L|v3L|h1..h5> <arm auto|eoq|early|150k> <rep> [cap_usd] [max_msgs]
+usage: python3 run_pilot.py <variant v1|v2|v3|v1L|v2L|v3L|h1..h7> <arm auto|eoq|early|150k|100k|70k> <rep> [cap_usd] [max_msgs]
 
 The harness is never allowed to auto-compact below its window (Claude Code's floor is
 100k). Instead this driver acts as an external controller: between user turns it
@@ -30,7 +30,7 @@ TOOLS = "Read Edit Write Glob Grep Bash"
 EARLY_HISTORY = 15_000   # aggressive arm: compact whenever history passes this
 SUMMARY_TOKENS = 11_000  # post-compaction conversation size observed in pilot rep 1
 NATIVE_AUTOCOMPACT = {"native150k": "150000"}  # CLI's own trigger; measured to fire at 69-85k total context
-CONTEXT_TRIGGERS = {"150k": 150_000}  # external trigger on total context (the compaction API's default)
+CONTEXT_TRIGGERS = {"150k": 150_000, "100k": 100_000, "70k": 70_000}  # external triggers on total context; 150k is the compaction API's default
 
 
 class Controller:
@@ -69,7 +69,11 @@ SANDBOX = json.dumps({"sandbox": {"enabled": True, "autoAllowBashIfSandboxed": T
 
 
 def out_dir(variant):
-    """High-growth runs keep their own ledger, so their budget cap counts only their own spend."""
+    """High-growth runs keep their own ledger, so their budget cap counts only their own spend.
+
+    PILOT_OUT names a results subdirectory for a later experiment with its own ledger and cap."""
+    if os.environ.get("PILOT_OUT"):
+        return ROOT / "results" / os.environ["PILOT_OUT"]
     return ROOT / "results" / "highgrowth" if is_high_growth(variant) else OUT
 
 
