@@ -137,6 +137,17 @@ Code: `sim.HorizonGated`, `sim.ClosedFormRecent`, `sim.empirical_residual` (test
 - One model only. Opus 5.5 would cost about 2× and is out of scope for this cap.
 - Model drift since 2026-10-29 is caught by the step 2 gate.
 
+**Protocol amendment (2026-11-05, after steps 1–2, before any dose run; $5.91 spent).**
+- Step 1 passed: the truncated `70k` run compacted 7 times in 40 messages ($2.83, above the $1 estimate).
+- Step 2 **failed its gate**: the h1 `auto` re-run recalled 15/20 against 20/20 originally, and cost 11.7% less ($3.08 vs $3.49).
+- A single re-run cannot separate model drift from run-to-run noise. A 5-fact swing with zero compactions says the per-run noise is about as large as the whole 19 → 15 effect seen earlier, so the gate's 2-fact threshold was set too tight. Either way, comparing new dose runs with the old 10-29 runs could be confounded by run date.
+- **Amended design:**
+  - The **primary estimate is the slope on h6 and h7 alone**, all five arms run fresh in this batch. No arm is compared across run dates.
+  - The pooled slope (h1–h3, h5 old arms plus new dose arms, and h6–h7) is secondary. Its gap from the primary slope is reported as the run-date check, along with the h1 `auto` pair.
+  - Run order: h6 and h7 first, then the dose arms on h1, h2, h3, h5, so a cap stop drops secondary runs first.
+  - Predictions, decision rule and cap ($90 total on `results/dose/ledger.jsonl`) are unchanged.
+- Power at a noise SD of about 3.5 facts: the fresh slope's SE is about 0.4 (10 runs, compactions 0–8), so the predicted −1.3 is about 3 SE from zero. The pooled slope's SE is about 0.25.
+
 ## Design: high-growth real sessions (written 2026-10-28, before the runs)
 
 Sizing: `experiments/size_highgrowth.py` → `results/highgrowth_sizing.json`. It replays the pilot's real per-call increments rescaled to the target growth, on the fidelity-checked simulator (7.9% MAE) with the pilot's bias corrected.
