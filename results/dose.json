@@ -1,0 +1,102 @@
+{
+  "primary": {
+    "orderings": [
+      "h6",
+      "h7"
+    ],
+    "n_runs": 8,
+    "slope_facts_per_compaction": 0.05714285714285714,
+    "ci95": [
+      -1.5142857142857142,
+      1.6285714285714286
+    ],
+    "perm_p": 0.9785,
+    "P_tokens": 0.0,
+    "P_tokens_upper": 37857.142857142855,
+    "break_even_P": 180000,
+    "200k_stands": true
+  },
+  "pooled": {
+    "orderings": [
+      "h1",
+      "h2",
+      "h3",
+      "h5",
+      "h6",
+      "h7"
+    ],
+    "n_runs": 20,
+    "slope_facts_per_compaction": -0.6175115207373271,
+    "ci95": [
+      -1.7428571428571427,
+      0.6557659208261617
+    ],
+    "perm_p": 0.461,
+    "P_tokens": 15437.788018433177,
+    "P_tokens_upper": 43571.428571428565,
+    "break_even_P": 180000,
+    "200k_stands": true
+  },
+  "arms": {
+    "auto": {
+      "n": 6,
+      "compactions": 0.0,
+      "recall_expression": 17.0,
+      "n_fixed": 20.0,
+      "recall_function": 20.0,
+      "c5_rule5_violations": 0.0,
+      "audit_linecount_ok": 8.0,
+      "audit_lastdef_ok": 8.0,
+      "cost_usd": 3.136627066666666,
+      "peak_context": 361503.5,
+      "calls": 107.83333333333333
+    },
+    "150k": {
+      "n": 6,
+      "compactions": 2.0,
+      "recall_expression": 15.5,
+      "rho": 0.0,
+      "n_fixed": 20.0,
+      "recall_function": 20.0,
+      "c5_rule5_violations": 0.0,
+      "audit_linecount_ok": 8.0,
+      "audit_lastdef_ok": 8.0,
+      "cost_usd": 2.8977113333333335,
+      "peak_context": 185055.16666666666,
+      "calls": 110.16666666666667
+    },
+    "eoq": {
+      "n": 6,
+      "compactions": 3.0,
+      "recall_expression": 15.166666666666666,
+      "rho": 0.16666666666666666,
+      "n_fixed": 20.0,
+      "recall_function": 19.833333333333332,
+      "c5_rule5_violations": 0.0,
+      "audit_linecount_ok": 8.0,
+      "audit_lastdef_ok": 8.0,
+      "cost_usd": 3.058643233333333,
+      "peak_context": 150341.5,
+      "calls": 111.5
+    },
+    "100k": {
+      "n": 2,
+      "compactions": 4.0,
+      "recall_expression": 12.0,
+      "rho": 0.0,
+      "n_fixed": 20.0,
+      "recall_function": 20.0,
+      "c5_rule5_violations": 0.0,
+      "audit_linecount_ok": 8.0,
+      "audit_lastdef_ok": 8.0,
+      "cost_usd": 3.3189222000000003,
+      "peak_context": 141696.0,
+      "calls": 115.5
+    }
+  },
+  "drift": {
+    "recall_delta": -5,
+    "cost_delta": -0.1170613564975197,
+    "ok": false
+  }
+}

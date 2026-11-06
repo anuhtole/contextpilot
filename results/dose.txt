@@ -1,0 +1,14 @@
+primary: 8 runs on h6, h7
+  recall slope +0.06 facts/compaction (95% CI -1.51 to +1.63, permutation p = 0.979)
+  P = 0k tokens/compaction (upper 38k) vs break-even 180k: 200k stands
+pooled: 20 runs on h1, h2, h3, h5, h6, h7
+  recall slope -0.62 facts/compaction (95% CI -1.74 to +0.66, permutation p = 0.461)
+  P = 15k tokens/compaction (upper 44k) vs break-even 180k: 200k stands
+
+arm     n  comp recall fixed refet     $
+auto    6   0.0   17.0  20.0   nan  3.14
+150k    6   2.0   15.5  20.0   0.0  2.90
+eoq     6   3.0   15.2  20.0   0.2  3.06
+100k    2   4.0   12.0  20.0   0.0  3.32
+
+drift (h1 auto re-run): recall -5, cost -11.7%, FAILED gate
