@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -26,6 +27,7 @@ WORK = Path(os.environ.get("PILOT_WORKDIR", "/tmp/contextpilot-pilot"))
 LEDGER = OUT / "ledger.jsonl"
 PER_RUN_CAP_USD = 10.0
 TIMEOUT_S = int(os.environ.get("PILOT_TIMEOUT_S", 90 * 60))
+STALL_S = int(os.environ.get("PILOT_STALL_S", 10 * 60))  # no output this long: throttled; the 1-hour cache would expire
 TOOLS = "Read Edit Write Glob Grep Bash"
 EARLY_HISTORY = 15_000   # aggressive arm: compact whenever history passes this
 SUMMARY_TOKENS = 11_000  # post-compaction conversation size observed in pilot rep 1
@@ -89,6 +91,19 @@ def drive(cmd, ws, env, msgs, stream, controller):
                             stderr=subprocess.DEVNULL, text=True, bufsize=1)
     deadline = time.time() + TIMEOUT_S
     pending, compacting, events = list(msgs), False, []
+    watch = {"last": time.time(), "why": None}
+
+    def watchdog():
+        """Kill a silent process: the read loop below blocks and cannot check the clock itself."""
+        while proc.poll() is None:
+            now = time.time()
+            if now > deadline or now - watch["last"] > STALL_S:
+                watch["why"] = "timeout" if now > deadline else "stalled"
+                proc.kill()
+                return
+            time.sleep(5)
+
+    threading.Thread(target=watchdog, daemon=True).start()
 
     def send(text):
         proc.stdin.write(json.dumps({"type": "user", "message": {"role": "user", "content": text}}) + "\n")
@@ -98,9 +113,7 @@ def drive(cmd, ws, env, msgs, stream, controller):
     with open(stream, "w") as fh:
         for line in proc.stdout:
             fh.write(line)
-            if time.time() > deadline:
-                proc.kill()
-                return "timeout", events
+            watch["last"] = time.time()
             try:
                 event = json.loads(line)
             except json.JSONDecodeError:
@@ -121,6 +134,8 @@ def drive(cmd, ws, env, msgs, stream, controller):
             else:
                 compacting = False
                 send(pending.pop(0))
+    if watch["why"]:
+        return watch["why"], events
     proc.stdin.close()
     try:
         return proc.wait(timeout=120), events
