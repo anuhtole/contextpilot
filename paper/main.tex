@@ -21,7 +21,7 @@ We measure every term of the cost model on headless Claude Code (Sonnet 5.5). Me
 
 We then ran 13 real sessions designed to cross $H^\star$, giving four paired task orderings. A fixed 150k trigger cost $9.8\%$ less than the default, and the online rule $2.8\%$ less; neither difference is statistically significant at $n=4$. Our recorded prediction of $-35\%$ failed. Its gap decomposes into an empirical bias correction we should not have applied (10 points) and back-loaded growth (16 points): real sessions do most of their growing just before they end.
 
-Replaying 16 real Claude Code sessions from one user's logs against the CLI's 490k auto-compaction point, the online rule would have cost 12\% less (about 30\% counting cache misses). That is within one point of the best per-session trigger in hindsight, at five times as many compactions and an unmeasured quality cost.
+Replaying 16 real Claude Code sessions from one user's logs against the CLI's 490k auto-compaction point, the online rule would have cost 12\% less (about 30\% counting cache misses). That is within one point of the best per-session trigger in hindsight, at five times as many compactions. A pre-registered dose-response experiment finds no detectable recall loss per extra compaction (slope $+0.06$ facts, 95\% CI $-1.5$ to $+1.6$). Its pessimistic bound prices a compaction at under a quarter of the 200k trigger's break-even, but the losses we do see are silent: the agent does not re-fetch what a summary dropped.
 
 In simulation, gating compactions on the predicted remaining session length is inert with learned predictors and worth at most 2 points even with an oracle. Steady-state savings are therefore a ceiling, not an expectation. The case for adaptive triggers is robustness across price regimes: a fixed 150k loses 29\% without caching.
 \end{abstract}
@@ -326,7 +326,7 @@ Observed & $-2.8\%$\\
 \item \textbf{A fixed trigger chosen leave-one-out} picks 200k for every held-out session and saves 12.4\%. The 150k API default saves less (8.9\%) and makes four sessions dearer.
 \item \textbf{Replaying the logged cache misses} roughly triples the saving to about 30\%. Each miss rewrites the whole prefix at the write price, and a lower trigger keeps less history to rewrite. This column depends on our miss inference.
 \item \textbf{Subagent sessions} rarely grow far, and every policy is within 3\% on them.
-\item \textbf{The saving is bought with compactions.} The online rule compacts 60 times across the main sessions, against 12 at 490k (22 in the logs, including manual ones). We do not measure what the additional compactions cost in task quality; the recall probe of \S\ref{sec:real} suggests that exact detail is lost.
+\item \textbf{The saving is bought with compactions.} The online rule compacts 60 times across the main sessions, against 12 at 490k (22 in the logs, including manual ones). \S\ref{sec:dose} measures what an extra compaction costs in recall. The warm 200k saving survives a penalty of up to about 180k tokens per compaction.
 \end{itemize}
 This is the regime the simulation flagged: near-window triggers on 1M windows, with sessions that actually reach them. It complements \S\ref{sec:real}, where \emph{auto} never fired. \texttt{python -m contextpilot recommend} runs the same replay on a user's own logs and prints the corresponding \texttt{autoCompactWindow} and API trigger.
 
@@ -337,6 +337,32 @@ This is the regime the simulation flagged: near-window triggers on 1M windows, w
 \label{tab:wild}
 \input{table_wild.tex}
 \end{table}
+
+\subsection{What does an extra compaction cost in quality?}\label{sec:dose}
+The replay's saving is only real if each extra compaction costs less than it saves. Pricing a per-compaction penalty $P$ into the replay, the warm 200k saving disappears at $P\approx180$k base-input tokens. With cache misses it stays positive past 400k. We pre-registered a dose-response experiment to estimate $P$ (\texttt{EVAL\_PLAN.md}, written before any run).
+
+\paragraph{Design.} The workload, model (Sonnet 5.5) and harness are those of \S\ref{sec:real}. Two new orderings (h6, h7) run under five arms: \emph{auto}, 150k, the online rule, and external \texttt{/compact} triggers at 100k and 70k total context. The 100k and 70k arms were also queued for the four earlier orderings. The outcome is exact-expression recall (/20), regressed on each run's realized compaction count with an ordering fixed effect. $p$ comes from a within-ordering permutation test and the 95\% CI from an ordering-cluster bootstrap. One lost fact is priced as a re-read of its module, about 25k tokens. We predicted a slope of $-1.3$ facts per compaction (interval $-0.6$ to $-2.0$), recall within 2 facts of the line at 70k, bugs fixed $\ge19$/20 everywhere, and 100k within $\pm8\%$ of 150k in cost.
+
+\paragraph{Protocol amendment.} The pre-registered drift gate failed. Re-running h1 \emph{auto} recalled 15/20 against 20/20 three weeks earlier, at 11.7\% lower cost. Run-to-run noise is about as large as the whole effect seen in \S\ref{sec:real}, so before any dose run we made the slope on h6 and h7 the primary estimate. All their arms ran in one batch. The pooled slope over all six orderings is secondary, and its gap from the primary serves as the run-date check.
+
+\paragraph{Attrition.} Eight of the 18 queued runs (\$6.38) went silent mid-session, during or between turns, until a 10-minute watchdog killed them. The account's rate limit was not binding (5\% of the weekly window). We stopped at \$36.33 of the \$90 cap. No 70k run completed, and 100k completed only on h6 and h7. The cliff prediction is untested.
+
+\paragraph{Results.} Figure~\ref{fig:dose} reports the 20 completed runs.
+\begin{itemize}
+\item \textbf{No detectable dose-response.} The primary slope is $+0.06$ facts per compaction (95\% CI $-1.51$ to $+1.63$, permutation $p=0.98$; 8 runs). The pooled slope is $-0.62$ ($-1.74$ to $+0.66$, $p=0.46$; 20 runs). The prediction of $-1.3$ lies inside both intervals and is neither confirmed nor excluded.
+\item \textbf{The 200k recommendation stands.} At the pessimistic CI bound an extra compaction loses at most 1.5--1.7 facts, which prices to $P\le38$--44k tokens. The 200k trigger breaks even only at about 7 facts per compaction.
+\item \textbf{Loss is all-or-nothing.} Four arms span a 0--4 compaction range with mean recall 12--17, but individual runs are bimodal. Most recall 13--20, while two (h7 at 150k, h6 at 100k) recall 4 and 5. In the h7 run the agent's own notes say the original expressions were lost because ``the earlier conversation that held them was compacted''. It still named all 20 affected functions.
+\item \textbf{The loss is silent.} After a compaction the agent re-read at most 0.2 previously read files per compaction (arm means), against the re-read our conversion assumes. The pre-registered rule for this case applies: $P$ is not bounded by re-read cost. Our bound holds only if a lost expression is worth no more than a module re-read.
+\item \textbf{Task outcome is unaffected.} Bugs fixed was 20/20 in every run, with no rule violations and all audits correct. Recall is the only quality measure here that moves at all.
+\item \textbf{Cost.} The two 100k runs cost \$3.32 on average, against \$2.90 at 150k (+15\%, outside the predicted $\pm8\%$, $n=2$).
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/dose.pdf}
+\caption{Exact-expression recall against realized compactions, one point per completed run. Lines are within-ordering (fixed-effect) slopes through each sample's means. Neither slope differs from zero.}
+\label{fig:dose}
+\end{figure}
 
 \subsection{Horizon-aware rules (simulation)}\label{sec:horizon}
 The real runs suggested two extensions. The first is a \textbf{horizon gate}. A compaction proposed by the inner trigger is taken only if the rent it saves over the predicted remaining session repays it: $h\,(H-s)(1+\hat R_t)\ge K(H)$. Here $\hat R_t$ is the mean residual session length, fit out of sample, with a Lindy fallback of $t+1$ beyond the data. A robustness fallback compacts anyway once rent since the last compaction reaches $K/\lambda$ ($\lambda=0.5$). The second is \textbf{recent growth}: the online target computed from an EWMA of $g$ with a half-life of 10 calls. The recent-growth rule was designed after seeing the real runs and is evaluated on their growth, so we treat it as exploratory.
@@ -360,7 +386,7 @@ Table~\ref{tab:horizon} reports the results.
 
 \section{Implications}
 \begin{enumerate}
-\item \textbf{Do not tie triggers to the window size.} $H^\star$ depends on growth, summary cost and prices, not the window. In trace-driven simulation, near-limit triggers on 1M windows cost about 28\% more than triggers near $H^\star$. In our live back-loaded sessions, the 150k trigger was 10\% cheaper than the default. That difference is not significant at $n=4$. Replayed on 16 real sessions that did reach Claude Code's 490k default, the online rule would have cost 12\% less (\S\ref{sec:wild}).
+\item \textbf{Do not tie triggers to the window size.} $H^\star$ depends on growth, summary cost and prices, not the window. In trace-driven simulation, near-limit triggers on 1M windows cost about 28\% more than triggers near $H^\star$. In our live back-loaded sessions, the 150k trigger was 10\% cheaper than the default. That difference is not significant at $n=4$. Replayed on 16 real sessions that did reach Claude Code's 490k default, the online rule would have cost 12\% less (\S\ref{sec:wild}), and the extra compactions showed no measurable recall cost up to four per session (\S\ref{sec:dose}).
 \item \textbf{Today's 150k default is close to optimal for Claude-priced coding agents at our growth rates} ($x\approx1.0$). It is not robust: it sits $2.3\times$ above $H^\star$ for slow sessions and loses 29\% without caching. An online rule adapts to both.
 \item \textbf{Treat steady-state savings as a ceiling.} Sessions that grow late and end soon after crossing $H^\star$ realize single-digit savings. With measured parameters, the cost model reproduces real bills to within 1\%, so a deployer can replay their own traces to see which regime they are in before changing a trigger.
 \item \textbf{Remaining-length prediction is not where the value is.} Better growth estimates are.
@@ -371,8 +397,8 @@ Table~\ref{tab:horizon} reports the results.
 \begin{itemize}
 \item \textbf{Real-agent scale.} The real-agent runs are small (18 pilot runs; 4 paired high-growth orderings) and use one model and one synthetic task family. No real-session comparison is statistically significant.
 \item \textbf{Trace provenance.} The local traces come from one user and mix models and subagents.
-\item \textbf{In-the-wild fidelity.} The replay of \S\ref{sec:wild} matches logged bills to 7.5\% in aggregate, but per-session errors span $-44\%$ to $+1\%$ (IQR). Its savings come from five times as many compactions, whose quality cost we did not measure.
-\item \textbf{Quality.} Quality enters the simulation only through re-fetch and an optional per-compaction penalty. The recall probe suggests that compaction loses exact detail, but we did not price it.
+\item \textbf{In-the-wild fidelity.} The replay of \S\ref{sec:wild} matches logged bills to 7.5\% in aggregate, but per-session errors span $-44\%$ to $+1\%$ (IQR).
+\item \textbf{Quality.} The dose-response of \S\ref{sec:dose} rests on 20 runs, with per-run noise of up to 5 facts and no completed run beyond 4 compactions, so a cliff at higher counts is untested. Recall /20 is coarse, and bugs fixed is saturated at 20/20. Our token price for a lost fact assumes a re-read, but the observed losses were silent.
 \item \textbf{Summary output.} $\sigma_o$ grows with history (4.4k--6.3k), while the model uses a constant.
 \item \textbf{Approximations.} SWE-agent token counts and summary sizes are approximations. Idle gaps are modeled as Bernoulli at an assumed rate. The offline optimum is a beam-search approximation.
 \item \textbf{Exploratory rule.} The recent-growth rule was designed after the real runs.

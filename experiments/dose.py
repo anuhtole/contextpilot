@@ -124,7 +124,11 @@ def drift(rows_r1):
 
 def main():
     rows = load()
-    res = {"primary": analyze(rows, FRESH), "pooled": analyze(rows), "arms": arm_table(rows), "drift": drift(rows)}
+    keep = set(complete_orderings(rows))
+    runs = [{k: r[k] for k in ("tag", "variant", "arm", "compactions", "recall_expression", "n_fixed", "cost_usd")}
+            for r in rows if r["variant"] in keep]
+    res = {"primary": analyze(rows, FRESH), "pooled": analyze(rows), "arms": arm_table(rows), "drift": drift(rows),
+           "runs": runs}
     lines = []
     for name in ("primary", "pooled"):
         pr = res[name]

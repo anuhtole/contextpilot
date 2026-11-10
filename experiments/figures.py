@@ -1,4 +1,5 @@
 """Paper figures: cost vs compaction point (flatness) and the optimal point vs growth rate."""
+import json
 import sys
 from pathlib import Path
 
@@ -86,9 +87,45 @@ def optimum_vs_growth():
     return fig
 
 
+def dose():
+    """Exact-expression recall vs realized compactions, one point per run (results/dose.json)."""
+    res = json.loads((ROOT / "results" / "dose.json").read_text())
+    fig, ax = plt.subplots(figsize=(6.2, 3.2))
+    groups = [("fresh batch (h6, h7)", lambda r: r["variant"] in ("h6", "h7"), SERIES[0][0], "o"),
+              ("earlier batch (h1-h3, h5)", lambda r: r["variant"] not in ("h6", "h7"), SERIES[1][0], "s")]
+    for label, pick, color, marker in groups:
+        rs = [r for r in res["runs"] if pick(r)]
+        x = np.array([r["compactions"] for r in rs], float)
+        seen = {}  # spread runs that land on the same point
+        for i, key in enumerate(zip(x, (r["recall_expression"] for r in rs))):
+            seen[key] = seen.get(key, -1) + 1
+            x[i] += 0.12 * seen[key]
+        ax.plot(x, [r["recall_expression"] for r in rs], marker, color=color, markersize=7,
+                markeredgecolor="white", markeredgewidth=1.5, linestyle="none", label=label)
+    for name, color, dash in (("primary", SERIES[0][0], "-"), ("pooled", SERIES[1][0], "--")):
+        pr = res[name]
+        pts = [r for r in res["runs"] if r["variant"] in pr["orderings"]]
+        cx = np.mean([r["compactions"] for r in pts])
+        cy = np.mean([r["recall_expression"] for r in pts])
+        xs = np.array([0, 4.3])
+        ax.plot(xs, cy + pr["slope_facts_per_compaction"] * (xs - cx), color=color, linestyle=dash, linewidth=1.5)
+        ax.text(4.4, cy + pr["slope_facts_per_compaction"] * (4.3 - cx),
+                f"{'h6, h7' if name == 'primary' else 'all six'}: {pr['slope_facts_per_compaction']:+.2f}/compaction",
+                fontsize=6.5, color=MUTED, va="center")
+    ax.legend(loc="lower left", fontsize=7, frameon=False, labelcolor=INK)
+    ax.set_xlim(-0.3, 6.2)
+    ax.set_ylim(0, 21)
+    ax.set_xlabel("realized compactions in the run", fontsize=8, color=INK)
+    ax.set_ylabel("exact buggy expressions recalled (/20)", fontsize=8, color=INK)
+    ax.set_title("Recall vs. compaction count (lines: within-ordering slopes)", fontsize=9, color=INK, loc="left")
+    style(ax)
+    fig.tight_layout()
+    return fig
+
+
 if __name__ == "__main__":
     FIG.mkdir(parents=True, exist_ok=True)
-    for name, make in (("flatness", flatness), ("optimum_vs_growth", optimum_vs_growth)):
+    for name, make in (("flatness", flatness), ("optimum_vs_growth", optimum_vs_growth), ("dose", dose)):
         fig = make()
         for ext in ("pdf", "png"):
             fig.savefig(FIG / f"{name}.{ext}", dpi=200)
