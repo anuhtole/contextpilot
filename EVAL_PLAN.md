@@ -148,18 +148,22 @@ Code: `sim.HorizonGated`, `sim.ClosedFormRecent`, `sim.empirical_residual` (test
   - Predictions, decision rule and cap ($90 total on `results/dose/ledger.jsonl`) are unchanged.
 - Power at a noise SD of about 3.5 facts: the fresh slope's SE is about 0.4 (10 runs, compactions 0–8), so the predicted −1.3 is about 3 SE from zero. The pooled slope's SE is about 0.25.
 
-**Outcome (2026-11-05; written up 2026-11-09).** Stopped at $36.33 of $90: 8 of 18 queued runs went silent mid-session (API hangs, not the rate limit) and were dropped ($6.38). Completed: h6/h7 under auto, 150k, eoq and 100k (8 runs); no 70k run.
+**Outcome (runs 2026-11-05 and 2026-11-12).** The full design completed: six orderings by five arms, 30 runs, at $71.28 of $90.
+- First batch (11-05): 8 of 18 queued runs went silent mid-session (API hangs, not the rate limit) and were dropped ($6.38). An interim write-up on 11-09 used the 20 runs then available.
+- Second batch (11-12): the remaining 10 cells (70k on all six orderings; 100k on h1, h2, h3, h5) all completed.
+- **Deviation:** every 70k run and four 100k runs are a week younger than the other arms of their ordering, h6 and h7 included. The primary estimate is no longer a single batch.
 
 | Prediction | Result | Verdict |
 |---|---|---|
-| Slope −1.3 (−0.6 to −2.0) | Primary +0.06 (CI −1.51 to +1.63, p = 0.98); pooled −0.62 (−1.74 to +0.66, p = 0.46) | Not confirmed; inside both CIs |
-| 70k within 2 facts of the line | No 70k run completed | Untested |
-| Bugs fixed ≥ 19/20 | 20/20 in every run | Held |
-| 100k within ±8% of 150k cost | $3.32 vs $2.90 (+15%, n = 2) | Failed |
+| Slope −1.3 (−0.6 to −2.0) | Primary +0.23 (CI −0.15 to +0.90, p = 0.78, 10 runs); pooled −0.05 (−0.39 to +0.32, p = 0.84, 30 runs) | Failed: both CIs exclude −0.6 |
+| 70k within 2 facts of the line from the other four arms | Primary +1.2 above the line; pooled +3.6 above | Held on primary; missed on pooled, in the harmless direction. No cliff |
+| Bugs fixed ≥ 19/20 | 20/20 in all 30 runs | Held |
+| 100k within ±8% of 150k cost | $3.29 vs $2.90 (+13%, n = 6) | Failed |
+| 70k costs more than 150k | $3.65 vs $2.90 (+26%) | Held |
 
-- **Decision rule:** the upper bound gives P ≤ 38k (primary) or 44k (pooled), under 180k, so the 200k default in `recommend` stands.
-- **Silent loss applies:** ρ ≈ 0 while two runs dropped to 4–5 recall. P is therefore not bounded by re-read cost, and the paper says so.
-- **Power was lower than planned:** realized noise was bimodal (4 to 20 at equal compaction counts), not SD 3.5.
+- **Decision rule:** the upper bound gives P ≤ 4k (primary) or 10k (pooled), under 180k, so the 200k default in `recommend` stands.
+- **Silent loss applies:** ρ ≤ 0.2 while two of 24 compacted runs dropped to 4–5 recall (h7 at 150k, h6 at 100k). P is therefore not bounded by re-read cost, and the paper says so.
+- **Noise:** recall was bimodal (28 runs at 12–20, two at 4–5), not the SD 3.5 assumed. The primary CI resamples only two orderings; the pooled CI is the more reliable.
 
 ## Design: high-growth real sessions (written 2026-10-28, before the runs)
 

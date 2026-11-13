@@ -91,15 +91,15 @@ def dose():
     """Exact-expression recall vs realized compactions, one point per run (results/dose.json)."""
     res = json.loads((ROOT / "results" / "dose.json").read_text())
     fig, ax = plt.subplots(figsize=(6.2, 3.2))
-    groups = [("fresh batch (h6, h7)", lambda r: r["variant"] in ("h6", "h7"), SERIES[0][0], "o"),
-              ("earlier batch (h1-h3, h5)", lambda r: r["variant"] not in ("h6", "h7"), SERIES[1][0], "s")]
+    groups = [("orderings h6, h7 (primary)", lambda r: r["variant"] in ("h6", "h7"), SERIES[0][0], "o"),
+              ("orderings h1-h3, h5", lambda r: r["variant"] not in ("h6", "h7"), SERIES[1][0], "s")]
     for label, pick, color, marker in groups:
         rs = [r for r in res["runs"] if pick(r)]
         x = np.array([r["compactions"] for r in rs], float)
         seen = {}  # spread runs that land on the same point
         for i, key in enumerate(zip(x, (r["recall_expression"] for r in rs))):
             seen[key] = seen.get(key, -1) + 1
-            x[i] += 0.12 * seen[key]
+            x[i] += 0.12 * seen[key] - 0.12 * (marker == "o")  # keep the two groups apart too
         ax.plot(x, [r["recall_expression"] for r in rs], marker, color=color, markersize=7,
                 markeredgecolor="white", markeredgewidth=1.5, linestyle="none", label=label)
     for name, color, dash in (("primary", SERIES[0][0], "-"), ("pooled", SERIES[1][0], "--")):
@@ -107,13 +107,13 @@ def dose():
         pts = [r for r in res["runs"] if r["variant"] in pr["orderings"]]
         cx = np.mean([r["compactions"] for r in pts])
         cy = np.mean([r["recall_expression"] for r in pts])
-        xs = np.array([0, 4.3])
+        xs = np.array([0, 8.3])
         ax.plot(xs, cy + pr["slope_facts_per_compaction"] * (xs - cx), color=color, linestyle=dash, linewidth=1.5)
-        ax.text(4.4, cy + pr["slope_facts_per_compaction"] * (4.3 - cx),
+        ax.text(8.45, cy + pr["slope_facts_per_compaction"] * (8.3 - cx) + (-0.9 if name == "primary" else 0.9),
                 f"{'h6, h7' if name == 'primary' else 'all six'}: {pr['slope_facts_per_compaction']:+.2f}/compaction",
                 fontsize=6.5, color=MUTED, va="center")
     ax.legend(loc="lower left", fontsize=7, frameon=False, labelcolor=INK)
-    ax.set_xlim(-0.3, 6.2)
+    ax.set_xlim(-0.3, 11.2)
     ax.set_ylim(0, 21)
     ax.set_xlabel("realized compactions in the run", fontsize=8, color=INK)
     ax.set_ylabel("exact buggy expressions recalled (/20)", fontsize=8, color=INK)

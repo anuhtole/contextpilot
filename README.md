@@ -63,19 +63,21 @@ Measured this way, the model reproduces real bills to within **0.8%**: on 18 pil
    - **Fidelity is looser than in the controlled runs:** +7.5% in aggregate; per-session error median −14%, IQR −44% to +1%.
 
 10. **What an extra compaction costs in quality** (pre-registered dose-response; `experiments/dose.py`, `results/dose.txt`).
-   - **Design:** exact-expression recall (/20) regressed on realized compactions, with an ordering fixed effect. Arms: `auto`, 150k, online, 100k and 70k.
-   - **No detectable effect:**
-     - Fresh orderings h6/h7: slope **+0.06 facts per compaction** (95% CI −1.51 to +1.63, p = 0.98, 8 runs).
-     - Pooled over six orderings: −0.62 (CI −1.74 to +0.66, p = 0.46, 20 runs).
-   - **The 200k recommendation stands.** At the pessimistic bound a compaction costs ≤ 44k tokens, against a 180k break-even.
-   - **Loss is all-or-nothing and silent.**
-     - Two runs recalled 4–5 of 20 expressions; the rest recalled 13–20.
+   - **Design:** six orderings under five arms (`auto`, 150k, online, 100k, 70k), 30 real sessions with 0–8 compactions each. Exact-expression recall (/20) is regressed on realized compactions, with an ordering fixed effect.
+   - **No effect, and our own prediction (−1.3 facts per compaction) is excluded:**
+     - All six orderings: slope **−0.05 facts per compaction** (95% CI −0.39 to +0.32, p = 0.84, 30 runs).
+     - Primary orderings h6/h7: +0.23 (CI −0.15 to +0.90, p = 0.78, 10 runs).
+   - **No cliff.** Runs at 70k compacted 6–8 times and recalled 16.3 on average, against 17.0 with no compaction.
+   - **The 200k recommendation stands.** At the pessimistic bound a compaction costs ≤ 10k tokens, against a 180k break-even.
+   - **Loss is rare, all-or-nothing and silent.**
+     - Two of the 24 compacted runs recalled 4–5 of 20 expressions; the other 28 runs recalled 12–20.
      - The agent did not re-read what the summary dropped, so the token price of a lost fact is a lower bound.
      - Bugs fixed was 20/20 in every run.
+   - **Compacting below H\* costs money:** $2.90 per run at 150k, $3.29 at 100k, $3.65 at 70k (`auto`: $3.14).
    - **Caveats:**
      - The drift gate failed (an h1 `auto` re-run recalled 15 vs 20), so the protocol was amended to an h6/h7-only primary estimate.
-     - 8 of 18 queued runs hung mid-session and were dropped ($6.38). No 70k run completed, so a cliff past 4 compactions is untested.
-     - Spent $36.33 of the $90 cap.
+     - Eight first-batch runs hung mid-session ($6.38) and were re-run a week later, so every 70k run and four 100k runs are a week younger than the other arms.
+     - Spent $71.28 of the $90 cap.
 
 **What that means.** Steady-state savings are a ceiling that only long, steadily growing sessions realize. For back-loaded coding sessions at Claude cache prices, trigger placement is worth single-digit percent. The calibrated cost model can tell a deployer in advance which regime they are in.
 

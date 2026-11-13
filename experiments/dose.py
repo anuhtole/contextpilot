@@ -76,7 +76,7 @@ def fe_slope(groups):
     return float((x @ y) / (x @ x)) if x @ x else float("nan")
 
 
-FRESH = {"h6", "h7"}  # every arm run in the 2026-11 batch: the primary, date-unconfounded slope
+FRESH = {"h6", "h7"}  # run only in 2026-11 (70k a week after the other arms): the primary slope
 
 
 def analyze(rows, only=None):

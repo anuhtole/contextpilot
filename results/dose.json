@@ -4,15 +4,15 @@
       "h6",
       "h7"
     ],
-    "n_runs": 8,
-    "slope_facts_per_compaction": 0.05714285714285714,
+    "n_runs": 10,
+    "slope_facts_per_compaction": 0.2318840579710145,
     "ci95": [
-      -1.5142857142857142,
-      1.6285714285714286
+      -0.14772727272727273,
+      0.9
     ],
-    "perm_p": 0.9785,
+    "perm_p": 0.7769,
     "P_tokens": 0.0,
-    "P_tokens_upper": 37857.142857142855,
+    "P_tokens_upper": 3693.1818181818185,
     "break_even_P": 180000,
     "200k_stands": true
   },
@@ -25,15 +25,15 @@
       "h6",
       "h7"
     ],
-    "n_runs": 20,
-    "slope_facts_per_compaction": -0.6175115207373271,
+    "n_runs": 30,
+    "slope_facts_per_compaction": -0.05448717948717947,
     "ci95": [
-      -1.7428571428571427,
-      0.6557659208261617
+      -0.3933189655172414,
+      0.31658095419018545
     ],
-    "perm_p": 0.461,
-    "P_tokens": 15437.788018433177,
-    "P_tokens_upper": 43571.428571428565,
+    "perm_p": 0.8383,
+    "P_tokens": 1362.1794871794866,
+    "P_tokens_upper": 9832.974137931034,
     "break_even_P": 180000,
     "200k_stands": true
   },
@@ -80,18 +80,32 @@
       "calls": 111.5
     },
     "100k": {
-      "n": 2,
-      "compactions": 4.0,
-      "recall_expression": 12.0,
+      "n": 6,
+      "compactions": 3.8333333333333335,
+      "recall_expression": 15.0,
       "rho": 0.0,
       "n_fixed": 20.0,
       "recall_function": 20.0,
       "c5_rule5_violations": 0.0,
       "audit_linecount_ok": 8.0,
       "audit_lastdef_ok": 8.0,
-      "cost_usd": 3.3189222000000003,
-      "peak_context": 141696.0,
-      "calls": 115.5
+      "cost_usd": 3.2865026,
+      "peak_context": 144912.0,
+      "calls": 116.16666666666667
+    },
+    "70k": {
+      "n": 6,
+      "compactions": 7.5,
+      "recall_expression": 16.333333333333332,
+      "rho": 0.13095238095238096,
+      "n_fixed": 20.0,
+      "recall_function": 20.0,
+      "c5_rule5_violations": 0.0,
+      "audit_linecount_ok": 8.0,
+      "audit_lastdef_ok": 8.0,
+      "cost_usd": 3.645428116666666,
+      "peak_context": 115453.16666666667,
+      "calls": 116.16666666666667
     }
   },
   "drift": {
@@ -279,6 +293,96 @@
       "recall_expression": 5,
       "n_fixed": 20,
       "cost_usd": 3.5633440000000007
+    },
+    {
+      "tag": "h7-70k-r1",
+      "variant": "h7",
+      "arm": "70k",
+      "compactions": 6,
+      "recall_expression": 14,
+      "n_fixed": 20,
+      "cost_usd": 3.310235799999999
+    },
+    {
+      "tag": "h6-70k-r1",
+      "variant": "h6",
+      "arm": "70k",
+      "compactions": 8,
+      "recall_expression": 15,
+      "n_fixed": 20,
+      "cost_usd": 3.7010397999999998
+    },
+    {
+      "tag": "h1-100k-r1",
+      "variant": "h1",
+      "arm": "100k",
+      "compactions": 3,
+      "recall_expression": 19,
+      "n_fixed": 20,
+      "cost_usd": 3.117231899999999
+    },
+    {
+      "tag": "h1-70k-r1",
+      "variant": "h1",
+      "arm": "70k",
+      "compactions": 8,
+      "recall_expression": 20,
+      "n_fixed": 20,
+      "cost_usd": 3.901286099999999
+    },
+    {
+      "tag": "h2-100k-r1",
+      "variant": "h2",
+      "arm": "100k",
+      "compactions": 4,
+      "recall_expression": 15,
+      "n_fixed": 20,
+      "cost_usd": 3.5283705
+    },
+    {
+      "tag": "h2-70k-r1",
+      "variant": "h2",
+      "arm": "70k",
+      "compactions": 7,
+      "recall_expression": 15,
+      "n_fixed": 20,
+      "cost_usd": 3.5150945000000005
+    },
+    {
+      "tag": "h3-100k-r1",
+      "variant": "h3",
+      "arm": "100k",
+      "compactions": 4,
+      "recall_expression": 17,
+      "n_fixed": 20,
+      "cost_usd": 3.442531000000001
+    },
+    {
+      "tag": "h3-70k-r1",
+      "variant": "h3",
+      "arm": "70k",
+      "compactions": 8,
+      "recall_expression": 19,
+      "n_fixed": 20,
+      "cost_usd": 3.7475013000000015
+    },
+    {
+      "tag": "h5-100k-r1",
+      "variant": "h5",
+      "arm": "100k",
+      "compactions": 4,
+      "recall_expression": 15,
+      "n_fixed": 20,
+      "cost_usd": 2.9930377999999997
+    },
+    {
+      "tag": "h5-70k-r1",
+      "variant": "h5",
+      "arm": "70k",
+      "compactions": 8,
+      "recall_expression": 15,
+      "n_fixed": 20,
+      "cost_usd": 3.697411199999999
     }
   ]
 }
