@@ -1,0 +1,10 @@
+primary: no data yet
+pooled: 16 runs on h1, h2, h6, h7
+  recall slope -0.39 facts/compaction (95% CI -1.03 to +0.21, permutation p = 0.241)
+  P = 10k tokens/compaction (upper 26k) vs break-even 180k: 200k stands
+
+arm     n  comp recall fixed refet     $
+auto    4   0.0   18.5  20.0   nan  1.52
+150k    4   2.8   15.5  20.0   0.1  0.87
+100k    4   4.8   13.8  20.0   0.8  0.55
+70k     4  10.8   13.8  20.0   0.4  0.34

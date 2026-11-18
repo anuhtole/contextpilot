@@ -24,7 +24,7 @@ We measure every term of the cost model on headless Claude Code (Sonnet 5.5). Me
 
 We then ran 13 real sessions designed to cross $H^\star$, giving four paired task orderings. A fixed 150k trigger cost $9.8\%$ less than the default, and the online rule $2.8\%$ less; neither difference is statistically significant at $n=4$. Our recorded prediction of $-35\%$ failed. Its gap decomposes into an empirical bias correction we should not have applied (10 points) and back-loaded growth (16 points): real sessions do most of their growing just before they end.
 
-Replaying 16 real Claude Code sessions from one user's logs against the CLI's 490k auto-compaction point, the online rule would have cost 12\% less (about 30\% counting cache misses). That is within one point of the best per-session trigger in hindsight, at five times as many compactions. A pre-registered dose-response experiment (30 real sessions, 0--8 compactions each) finds no recall loss per extra compaction: the pooled slope is $-0.05$ facts (95\% CI $-0.39$ to $+0.32$), which excludes our own prediction of $-1.3$. Its pessimistic bound prices a compaction at about a twentieth of the 200k trigger's break-even. The losses we do see are rare, large and silent: two of 24 compacted runs lost most of the probed facts, and the agent did not re-fetch them.
+Replaying 16 real Claude Code sessions from one user's logs against the CLI's 490k auto-compaction point, the online rule would have cost 12\% less (about 30\% counting cache misses). That is within one point of the best per-session trigger in hindsight, at five times as many compactions. A pre-registered dose-response experiment (30 real sessions, 0--8 compactions each) finds no recall loss per extra compaction: the pooled slope is $-0.05$ facts (95\% CI $-0.39$ to $+0.32$), which excludes our own prediction of $-1.3$. Its pessimistic bound prices a compaction at about a twentieth of the 200k trigger's break-even. The losses we do see are rare, large and silent: two of 24 compacted runs lost most of the probed facts, and the agent did not re-fetch them. Repeating the experiment on Haiku 5.5 (16 sessions, 0--11 compactions each) again excludes our prediction (slope $-0.39$, CI $-1.03$ to $+0.21$), though compacted runs recalled about four facts fewer than uncompacted ones. Haiku bills every token at $5\times$ once a prompt passes 100k tokens, and there a 70k trigger cut the bill by 77\%. With only the rates changed, the cost model matched those bills to 0.2\%.
 
 In simulation, gating compactions on the predicted remaining session length is inert with learned predictors and worth at most 2 points even with an oracle. Steady-state savings are therefore a ceiling, not an expectation. The case for adaptive triggers is robustness across price regimes: a fixed 150k loses 29\% without caching.
 \end{abstract}
@@ -368,6 +368,41 @@ The replay's saving is only real if each extra compaction costs less than it sav
 \label{fig:dose}
 \end{figure}
 
+\subsection{Replication on a second model}\label{sec:model2}
+Every run above used Sonnet 5.5. A weaker model could lose more per compaction, so we repeated the dose-response on Haiku 5.5, the smallest current Claude model, on the same harness. The design, predictions and a \$60 cap were written to \texttt{EVAL\_PLAN.md} before any run.
+
+\paragraph{Design.} Orderings h1, h2, h6 and h7 ran under \emph{auto} and external triggers at 150k, 100k and 70k: 16 runs. They ran in one batch, with each ordering's four arms back to back, so there is no run-date confound and no attrition. The online arm was dropped because its controller uses Sonnet prices. The analysis is that of \S\ref{sec:dose}. The whole replication cost \$14.51.
+
+\paragraph{A price tier, found in calibration.} One calibration run came first. Fitting its usage counters against the reported cost turn by turn shows that Haiku 5.5 bills \$0.10 per million input tokens ($w=2$, $r=0.1$, $o=5$) while a prompt is at most 100k tokens, and exactly five times all four rates above that. Anthropic's price list has the same tier, and Sonnet 5.5 has none. Our prediction that cost would rise as the trigger falls, as it did on Sonnet, assumed flat prices. Before the main batch we recorded that we expected it to fail, and registered tier-aware cost predictions in its place.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{lrrrrrr}
+\toprule
+Arm & Compactions & Recall /20 & \$ per run & Replay \$ & Flat-price \$ & Calls $>$100k\\
+\midrule
+\emph{auto} & 0.0 & 18.5 & 1.52 & 1.53 & 0.36 & 64\%\\
+150k & 2.8 & 15.5 & 0.87 & 0.87 & 0.27 & 43\%\\
+100k & 4.8 & 13.8 & 0.55 & 0.53 & 0.25 & 11\%\\
+70k & 10.8 & 13.8 & 0.34 & 0.37 & 0.28 & 2\%\\
+\bottomrule
+\end{tabular}
+\caption{Haiku 5.5, four orderings per arm, means. ``Replay'' is the cost model's bill for each run's realized growth and compaction schedule under the tiered rates. ``Flat-price'' is the same replay with the tier removed. The last column is the share of calls whose prompt exceeded 100k tokens.}
+\label{tab:model2}
+\end{table}
+
+\paragraph{Results} (Table~\ref{tab:model2}).
+\begin{itemize}
+\item \textbf{The predicted dose-response is excluded again.} The slope is $-0.39$ facts per compaction (95\% CI $-1.03$ to $+0.21$, permutation $p=0.24$; 16 runs). It lies inside the registered range ($-0.5$ to $+0.3$), and the interval excludes $-1.3$. At the pessimistic bound a compaction costs 26k tokens.
+\item \textbf{The no-cliff prediction failed.} We predicted recall at 70k within 3 facts of \emph{auto}; it was 4.8 lower. The shape is a step, not a slope: recall falls from 18.5 to 15.5 at about 3 compactions, and is 13.8 at both 5 and 11. Averaged within orderings, compacted runs recalled 4.2 facts fewer than \emph{auto}, in three of the four orderings (exact sign-flip $p=0.25$). This contrast was not registered. On Sonnet the same gap is 1.5 facts. We read it as a cost of compacting at all that may be larger on the smaller model, and we cannot establish it at this sample size.
+\item \textbf{Loss is again concentrated.} One of the 12 compacted runs recalled 4 of 20 (h7 at 70k) and another 6 (h6 at 100k); the other ten recalled 12--20. The registered limit was three runs at 5 or fewer. Bugs fixed was 20/20 in all 16 runs.
+\item \textbf{The cost model transfers.} With Haiku's billed rates and the structural terms measured on Sonnet, the replay gives \$13.19 against \$13.16 billed ($+0.2\%$; by arm $+0.2\%$, $+0.1\%$, $-4.2\%$ and $+7.3\%$). The registered band was $\pm3\%$ in aggregate. The conversation kept after a compaction averaged 11.8k tokens over 73 compactions, against 11k on Sonnet.
+\item \textbf{Under a tier, trigger placement is worth most of the bill.} The 70k arm cost 77\% less than \emph{auto} (registered: at least 70\%), and cost is ordered \emph{auto} $>$ 150k $>$ 100k $>$ 70k as registered. With the tier removed, the same four schedules would cost \$0.25--0.36, so the tier accounts for nearly all of the spread.
+\item \textbf{Our per-arm cost forecast failed for the 100k arm.} Three arms landed 14--23\% above the forecast, inside the $\pm25\%$ band. The 100k arm cost \$0.55 against \$0.32. The forecast compacted at exactly 100k. The real controller acts only between turns, so context peaked at 144--156k and 11\% of calls were billed at the higher tier. Given the realized schedule, the replay is within 4\%.
+\end{itemize}
+
+\paragraph{Reading.} Two things carry over from Sonnet: the per-compaction slope we predicted is excluded, and the calibrated model prices real bills. One thing does not. On Haiku the first compactions may cost several facts, and this design cannot separate that from noise. The economics differ in kind. Where prices are flat, compacting early costs a little money for nothing. Where a tier exists, the trigger belongs far enough below it that a whole turn fits underneath, and its exact placement matters more than everything else in this paper.
+
 \subsection{Horizon-aware rules (simulation)}\label{sec:horizon}
 The real runs suggested two extensions. The first is a \textbf{horizon gate}. A compaction proposed by the inner trigger is taken only if the rent it saves over the predicted remaining session repays it: $h\,(H-s)(1+\hat R_t)\ge K(H)$. Here $\hat R_t$ is the mean residual session length, fit out of sample, with a Lindy fallback of $t+1$ beyond the data. A robustness fallback compacts anyway once rent since the last compaction reaches $K/\lambda$ ($\lambda=0.5$). The second is \textbf{recent growth}: the online target computed from an EWMA of $g$ with a half-life of 10 calls. The recent-growth rule was designed after seeing the real runs and is evaluated on their growth, so we treat it as exploratory.
 
@@ -395,21 +430,22 @@ Table~\ref{tab:horizon} reports the results.
 \item \textbf{Treat steady-state savings as a ceiling.} Sessions that grow late and end soon after crossing $H^\star$ realize single-digit savings. With measured parameters, the cost model reproduces real bills to within 1\%, so a deployer can replay their own traces to see which regime they are in before changing a trigger.
 \item \textbf{Remaining-length prediction is not where the value is.} Better growth estimates are.
 \item \textbf{With 1-hour caching, compact when an idle gap expires the cache} once history exceeds about 88k.
+\item \textbf{Where prices step up with prompt size, compact below the step.} On Haiku 5.5, which bills $5\times$ above 100k tokens, a 70k trigger cut real bills by 77\% (\S\ref{sec:model2}). A trigger on context measured between turns must leave room for one turn's growth: the 100k trigger overshot to about 150k.
 \end{enumerate}
 
 \section{Limitations}
 \begin{itemize}
-\item \textbf{Real-agent scale.} The real-agent runs are small (18 pilot runs; 4 paired high-growth orderings) and use one model and one synthetic task family. No real-session comparison is statistically significant.
+\item \textbf{Real-agent scale.} The real-agent runs are small (18 pilot runs; 4 paired high-growth orderings) and use two models from one vendor and one synthetic task family. No real-session comparison is statistically significant.
 \item \textbf{Trace provenance.} The local traces come from one user and mix models and subagents.
 \item \textbf{In-the-wild fidelity.} The replay of \S\ref{sec:wild} matches logged bills to 7.5\% in aggregate, but per-session errors span $-44\%$ to $+1\%$ (IQR).
-\item \textbf{Quality.} The dose-response of \S\ref{sec:dose} rests on 30 runs of one task family on one model, with per-run noise of up to 5 facts. The 70k arm and most 100k runs ran a week after the other arms. Two of 24 compacted runs lost most of the probed facts, which is too few to relate to compaction count or to bound the rate of such failures. Recall /20 is coarse, and bugs fixed is saturated at 20/20. Our token price for a lost fact assumes a re-read, but the observed losses were silent.
+\item \textbf{Quality.} The dose-response of \S\ref{sec:dose} rests on 30 runs of one task family on one model, with per-run noise of up to 5 facts. The 70k arm and most 100k runs ran a week after the other arms. Two of 24 compacted runs lost most of the probed facts, which is too few to relate to compaction count or to bound the rate of such failures. Recall /20 is coarse, and bugs fixed is saturated at 20/20. Our token price for a lost fact assumes a re-read, but the observed losses were silent. On Haiku 5.5 (16 runs) the slope is also indistinguishable from zero, but compacted runs recalled about four facts fewer than uncompacted ones and one registered prediction failed, so a larger cost of compacting on smaller models is not ruled out.
 \item \textbf{Summary output.} $\sigma_o$ grows with history (4.4k--6.3k), while the model uses a constant.
 \item \textbf{Approximations.} SWE-agent token counts and summary sizes are approximations. Idle gaps are modeled as Bernoulli at an assumed rate. The offline optimum is a beam-search approximation.
 \item \textbf{Exploratory rule.} The recent-growth rule was designed after the real runs.
 \end{itemize}
 
 \section{Conclusion}
-Compaction timing is a flat EOQ problem with a window-independent optimum. Under current Claude cache prices, a product default near 150k is already close to that optimum for typical coding growth, and window-relative triggers on 1M-window models are the clear inefficiency. A cost model with measured parameters reproduces real bills to within 1\%. That fidelity is what explains our failed prediction: real sessions do most of their growing just before they end, so steady-state savings are a ceiling. Adaptive triggers earn their place through robustness across prices and summary costs, not through large savings at today's prices.
+Compaction timing is a flat EOQ problem with a window-independent optimum. Under current Claude cache prices, a product default near 150k is already close to that optimum for typical coding growth, and window-relative triggers on 1M-window models are the clear inefficiency. A cost model with measured parameters reproduces real bills to within 1\%. That fidelity is what explains our failed prediction: real sessions do most of their growing just before they end, so steady-state savings are a ceiling. Adaptive triggers earn their place through robustness across prices and summary costs, not through large savings at today's flat prices. Where a model's prices step up with prompt size, as on Haiku 5.5, the same cost model shows the trigger deciding most of the bill.
 
 \paragraph{Code and data.} The simulator, experiment scripts, pre-registration (\texttt{EVAL\_PLAN.md}), per-run ledgers and session logs are available at \ifanon an anonymized repository (link withheld for review)\else\url{https://github.com/anuhtole/contextpilot}\fi. The traces contain token counts only.
 

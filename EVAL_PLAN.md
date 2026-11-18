@@ -229,6 +229,25 @@ Stop and report instead of continuing if any of these holds:
 - Prediction 4 (fidelity within ±3%) now uses the tiered rates.
 - The dose-response question, its analysis and the $60 cap are unchanged. Runs cost about $1.35 at most, so the batch should end near $15.
 
+**Outcome (16 runs, 2026-11-18, one batch, no attrition; $14.51 of the $60 cap including calibration).** `experiments/model2.py` → `results/model2.txt`.
+
+| Prediction | Outcome | Verdict |
+|---|---|---|
+| 1. Slope in −0.5 to +0.3; CI excludes −1.3 | −0.39 (95% CI −1.03 to +0.21, p = 0.24) | held |
+| 2. Recall at 70k within 3 facts of `auto` | 13.8 vs 18.5: 4.8 lower | **failed** |
+| 3. Cost 70k > 100k > 150k (flat prices) | $0.34 < $0.55 < $0.87 | failed, as expected after calibration |
+| 3b. Order `auto` > 150k > 100k > 70k | $1.52 > $0.87 > $0.55 > $0.34 | held |
+| 3b. Each arm within ±25% of the table | +14%, +18%, **+73%** (100k), +23% | **failed** on the 100k arm |
+| 3c. 70k at least 70% below `auto` | 77% | held |
+| 4. Aggregate fidelity within ±3% | +0.2% (by arm +0.2, +0.1, −4.2, +7.3) | held |
+| 5. At most 3 of 12 compacted runs recall ≤ 5 | 1 (h7 at 70k: 4); h6 at 100k recalled 6 | held |
+
+- **Decision rule.** The pessimistic bound is 1.03 facts, P ≤ 26k tokens, under 180k, and the CI spans zero, so the paper reports no per-compaction slope on either model. Prediction 4 held, so the cost model is reported as transferring with only the rates changed.
+- **What the rule did not anticipate.** The loss looks like a step: 18.5 → 15.5 at about 3 compactions, then 13.8 at both 5 and 11. Compacted runs recalled 4.2 facts fewer than `auto` within orderings (h1 −1.0, h2 +5.3, h6 +5.7, h7 +6.7; exact sign-flip p = 0.25). This contrast was not registered and is reported as exploratory. The same gap on Sonnet is 1.5.
+- **Why the 100k forecast failed.** The forecast compacted at exactly 100k. The controller acts between turns, so context peaked at 144–156k and 11% of calls were billed at 5x. Replaying the realized schedule is within 4%.
+- **Structural terms on Haiku.** 11.8k kept after compaction (73 compactions), against 11k on Sonnet. Re-read files per compaction: 0.1, 0.8 and 0.4 at 150k, 100k and 70k (Sonnet: at most 0.2).
+- **The 180k break-even is a Sonnet-price figure.** Under Haiku's tier a compaction below 100k saves money outright, so the comparison that matters there is dollars saved against facts lost, not P against a break-even.
+
 ## Design: high-growth real sessions (written 2026-10-28, before the runs)
 
 Sizing: `experiments/size_highgrowth.py` → `results/highgrowth_sizing.json`. It replays the pilot's real per-call increments rescaled to the target growth, on the fidelity-checked simulator (7.9% MAE) with the pilot's bias corrected.

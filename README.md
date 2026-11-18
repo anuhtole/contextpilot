@@ -79,7 +79,16 @@ Measured this way, the model reproduces real bills to within **0.8%**: on 18 pil
      - Eight first-batch runs hung mid-session ($6.38) and were re-run a week later, so every 70k run and four 100k runs are a week younger than the other arms.
      - Spent $71.28 of the $90 cap.
 
-**What that means.** Steady-state savings are a ceiling that only long, steadily growing sessions realize. For back-loaded coding sessions at Claude cache prices, trigger placement is worth single-digit percent. The calibrated cost model can tell a deployer in advance which regime they are in.
+11. **Second model: Haiku 5.5** (pre-registered replication; `experiments/model2.py`, `results/model2.txt`).
+   - **Design:** four orderings under `auto`, 150k, 100k and 70k, 16 real sessions in one batch with 0–11 compactions each. Spent $14.51 of a $60 cap.
+   - **The predicted dose-response is excluded again:** slope **−0.39 facts per compaction** (95% CI −1.03 to +0.21, p = 0.24).
+   - **But the no-cliff prediction failed.** Recall was 18.5 with no compaction, 15.5 at 150k and 13.8 at both 100k and 70k. Compacted runs recalled 4.2 facts fewer than `auto` (three of four orderings; not significant, and not a registered contrast). On Sonnet that gap is 1.5.
+   - **Haiku 5.5 has a price tier:** every rate is 5x once a prompt passes 100k tokens. A 70k trigger cut real bills by **77%** ($0.34 vs $1.52 per run). Without the tier the four arms would cost $0.25–0.36.
+   - **The cost model transfers:** with Haiku's rates and Sonnet's structural terms it reproduces the 16 bills to **+0.2%**.
+   - **One forecast failed:** the 100k arm cost $0.55 against a predicted $0.32. The controller acts between turns, so context peaked near 150k and 11% of calls were billed at 5x.
+   - Bugs fixed was 20/20 in every run. One of 12 compacted runs recalled 4 of 20.
+
+**What that means.** Steady-state savings are a ceiling that only long, steadily growing sessions realize. For back-loaded coding sessions at Claude cache prices, trigger placement is worth single-digit percent. The exception is a model whose prices step up with prompt size: there the trigger decides most of the bill. The calibrated cost model can tell a deployer in advance which regime they are in.
 
 The tables in `paper/` are generated from `results/*.json` by `experiments/make_tables.py`.
 
@@ -124,6 +133,7 @@ cd experiments
 ../.venv/bin/python fidelity.py      # simulator vs. real pilot bills
 ../.venv/bin/python highgrowth_summary.py && ../.venv/bin/python prediction_gap.py
 ../.venv/bin/python wild.py          # in-the-wild replay of data/wild_traces.json (--refresh re-extracts yours)
+../.venv/bin/python dose.py && ../.venv/bin/python dose.py model2 && ../.venv/bin/python model2.py   # dose-response, Sonnet and Haiku
 ../.venv/bin/python horizon.py && ../.venv/bin/python make_tables.py
 ../.venv/bin/python figures.py
 ```

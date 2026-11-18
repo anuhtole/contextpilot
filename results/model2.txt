@@ -1,0 +1,23 @@
+Haiku 5.5 replication: 16 runs, $13.16
+slope -0.39 facts/compaction (95% CI -1.03 to +0.21, p = 0.241)
+
+arm     comp recall      $  table $  vs table  replay $  fidelity  flat $  >100k
+auto     0.0   18.5   1.52     1.34      +14%      1.53     +0.2%    0.36    64%
+150k     2.8   15.5   0.87     0.74      +18%      0.87     +0.1%    0.27    43%
+100k     4.8   13.8   0.55     0.32      +73%      0.53     -4.2%    0.25    11%
+70k     10.8   13.8   0.34     0.28      +23%      0.37     +7.3%    0.28     2%
+
+fidelity, all runs: +0.2%
+70k vs auto: 77% cheaper; recall gap 4.8 facts
+kept after compaction: 11.8k (n = 73)
+compacted runs recalling <= 5: 1 of 12 ['h7-70k-r1']
+exploratory, auto minus mean of compacted arms, per ordering: h1 -1.0, h2 +5.3, h6 +5.7, h7 +6.7 (mean +4.2)
+
+PASS  1 slope in range, CI excludes -1.3
+FAIL  2 no cliff (70k within 3 facts of auto)
+FAIL  3 cost 70k > 100k > 150k (flat-price prediction)
+PASS  3b order auto > 150k > 100k > 70k
+FAIL  3b each arm within 25% of table
+PASS  3c 70k at least 70% below auto
+PASS  4 fidelity within 3%
+PASS  5 at most 3 compacted runs recall <= 5
