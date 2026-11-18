@@ -26,6 +26,7 @@ OUT = ROOT / "results" / "pilot"
 WORK = Path(os.environ.get("PILOT_WORKDIR", "/tmp/contextpilot-pilot"))
 LEDGER = OUT / "ledger.jsonl"
 PER_RUN_CAP_USD = 10.0
+MODEL = os.environ.get("PILOT_MODEL", "sonnet")  # CLI alias; the second-model replication sets haiku
 TIMEOUT_S = int(os.environ.get("PILOT_TIMEOUT_S", 90 * 60))
 STALL_S = int(os.environ.get("PILOT_STALL_S", 10 * 60))  # no output this long: throttled; the 1-hour cache would expire
 TOOLS = "Read Edit Write Glob Grep Bash"
@@ -144,6 +145,18 @@ def drive(cmd, ws, env, msgs, stream, controller):
         return "killed", events
 
 
+def billed_model(stream):
+    """Model id, context window and cumulative usage the CLI billed, from the last result event."""
+    usage = {}
+    for line in stream.read_text(errors="ignore").splitlines():
+        if '"modelUsage"' in line:
+            try:
+                usage = json.loads(line).get("modelUsage") or usage
+            except json.JSONDecodeError:
+                continue
+    return {"model_usage": usage}
+
+
 def run(variant, arm, rep, cap, max_msgs=None):
     out = out_dir(variant)
     ledger = out / "ledger.jsonl"
@@ -159,7 +172,7 @@ def run(variant, arm, rep, cap, max_msgs=None):
         n_large = len(LARGE_BUGS)
         large, audit = msgs[-1 - 2 * n_large:-1 - n_large], msgs[-1 - n_large:-1]
         msgs = [msgs[0], *large[:half], *audit[:max_msgs - 2 - half], msgs[-1]]
-    cmd = ["claude", "-p", "--input-format", "stream-json", "--model", "sonnet",
+    cmd = ["claude", "-p", "--input-format", "stream-json", "--model", MODEL,
            "--autocompact", NATIVE_AUTOCOMPACT.get(arm, "auto"), "--setting-sources", "project", "--strict-mcp-config",
            "--no-session-persistence", "--output-format", "stream-json", "--verbose",
            "--permission-mode", "dontAsk", "--allowedTools", TOOLS,
@@ -168,7 +181,8 @@ def run(variant, arm, rep, cap, max_msgs=None):
     start = time.time()
     status, compactions = drive(cmd, ws, env, msgs, stream, Controller(arm))
     row = {"tag": tag, "variant": variant, "arm": arm, "rep": rep, "status": status,
-           "seconds": round(time.time() - start), "compaction_events": compactions, **score(ws, stream, variant=variant)}
+           "seconds": round(time.time() - start), "compaction_events": compactions, **score(ws, stream, variant=variant),
+           **billed_model(stream)}
     with open(ledger, "a") as fh:
         fh.write(json.dumps(row) + "\n")
     return row

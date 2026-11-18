@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from run_pilot import ROOT, spent  # noqa: E402
 
-OUT = "dose"
+OUT = os.environ.get("DOSE_OUT", "dose")  # results subdirectory and ledger; model2 for the replication
 PARALLEL = int(os.environ.get("PARALLEL", 2))
 HEADROOM = float(os.environ.get("HEADROOM", 20))
 LEDGER = ROOT / "results" / OUT / "ledger.jsonl"
@@ -25,7 +25,7 @@ def launch(job, cap):
     if spent(LEDGER) + HEADROOM > cap:
         print(f"skip {job}: spent ${spent(LEDGER):.2f} + headroom ${HEADROOM} > cap ${cap}", flush=True)
         return
-    env = {**os.environ, "PILOT_OUT": OUT, "PILOT_WORKDIR": "/tmp/contextpilot-dose"}
+    env = {**os.environ, "PILOT_OUT": OUT, "PILOT_WORKDIR": f"/tmp/contextpilot-{OUT}"}
     res = subprocess.run([sys.executable, "run_pilot.py", v, arm, rep, str(cap)], cwd=Path(__file__).parent,
                          env=env, capture_output=True, text=True)
     print(f"{job}: exit {res.returncode} {res.stdout.strip()[-300:]} {res.stderr.strip()[-300:]}", flush=True)

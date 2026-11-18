@@ -8,6 +8,7 @@ and its CI an ordering-cluster bootstrap. The slope converts to a per-compaction
 Writes results/dose.txt and results/dose.json.
 """
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -22,9 +23,9 @@ SECONDARY = ["n_fixed", "recall_function", "c5_rule5_violations", "audit_linecou
              "cost_usd", "peak_context", "calls"]
 
 
-def load(rep=1):
+def load(rep=1, sources=None):
     rows = []
-    for d in SOURCES:
+    for d in sources or SOURCES:
         path = d / "ledger.jsonl"
         if not path.exists():
             continue
@@ -122,12 +123,15 @@ def drift(rows_r1):
     return {"recall_delta": d_recall, "cost_delta": d_cost, "ok": abs(d_recall) <= 2 and abs(d_cost) <= 0.10}
 
 
-def main():
-    rows = load()
+def main(name=None):
+    """With a name (e.g. model2), analyse results/<name>/ alone: one batch, so only a pooled slope."""
+    rows = load(sources=[ROOT / "results" / name] if name else None)
+    out = f"dose_{name}" if name else "dose"
     keep = set(complete_orderings(rows))
     runs = [{k: r[k] for k in ("tag", "variant", "arm", "compactions", "recall_expression", "n_fixed", "cost_usd")}
             for r in rows if r["variant"] in keep]
-    res = {"primary": analyze(rows, FRESH), "pooled": analyze(rows), "arms": arm_table(rows), "drift": drift(rows),
+    res = {"primary": None if name else analyze(rows, FRESH), "pooled": analyze(rows), "arms": arm_table(rows),
+           "drift": None if name else drift(rows),
            "runs": runs}
     lines = []
     for name in ("primary", "pooled"):
@@ -148,10 +152,10 @@ def main():
         d = res["drift"]
         lines += ["", f"drift (h1 auto re-run): recall {d['recall_delta']:+d}, cost {d['cost_delta']:+.1%}, "
                       f"{'ok' if d['ok'] else 'FAILED gate'}"]
-    (ROOT / "results" / "dose.txt").write_text("\n".join(lines) + "\n")
-    (ROOT / "results" / "dose.json").write_text(json.dumps(res, indent=2))
+    (ROOT / "results" / f"{out}.txt").write_text("\n".join(lines) + "\n")
+    (ROOT / "results" / f"{out}.json").write_text(json.dumps(res, indent=2))
     print("\n".join(lines))
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else None)

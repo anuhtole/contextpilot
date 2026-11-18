@@ -165,7 +165,7 @@ Code: `sim.HorizonGated`, `sim.ClosedFormRecent`, `sim.empirical_residual` (test
 - **Silent loss applies:** ρ ≤ 0.2 while two of 24 compacted runs dropped to 4–5 recall (h7 at 150k, h6 at 100k). P is therefore not bounded by re-read cost, and the paper says so.
 - **Noise:** recall was bimodal (28 runs at 12–20, two at 4–5), not the SD 3.5 assumed. The primary CI resamples only two orderings; the pooled CI is the more reliable.
 
-## Design: second-model replication (written 2026-11-18, before any run; not yet approved)
+## Design: second-model replication (written 2026-11-18, before any run; approved and started the same day)
 
 **Why.** Every real run so far used Sonnet 5.5. The claim most likely to be model-specific is the dose-response null: a weaker model could lose more per compaction. The cost model's fidelity is the second.
 
@@ -210,6 +210,24 @@ Stop and report instead of continuing if any of these holds:
 **Budget.** Cap $60 on a new ledger, `results/model2/ledger.jsonl`: 17 runs at the Sonnet per-run maximum of $3.50, as an upper bound. The driver refuses to start a run that could pass the cap.
 
 **Power.** The Sonnet pooled slope had SE about 0.18 on 30 runs. With 16 runs over the same 0–8 compaction range, SE is about 0.25, so a true slope near zero excludes −1.3 by about 5 SE.
+
+**Calibration outcome and amendment (2026-11-18, after step 1, before any main-batch run; $1.35 spent).**
+- The gate passed: h1 `auto` on `claude-haiku-5-5` fixed 20/20 bugs, recalled 20/20, peaked at 422k context in a 1M window and never compacted.
+- **Haiku 5.5 has a long-context price tier.** Fitting the usage counters against `costUSD` turn by turn gives $0.10 per MTok input (2x cache write, 0.1x cache read, 5x output) while the prompt is at most 100k tokens, and exactly 5x all four rates above 100k. Anthropic's pricing page lists the same tier. Sonnet 5.5 has none.
+- Prediction 3 (70k > 100k > 150k in cost) was written assuming flat prices and is now expected to fail. It stays on the record.
+- **New predictions, registered now.** A per-call replay of the calibration run under the tiered rates (11k kept, 5.2k summary output, 8.6k prefix evicted, as measured on Sonnet) gives:
+
+  | Arm | Predicted $ per run | Predicted compactions |
+  |---|---|---|
+  | `auto` | 1.34 (realized in calibration: 1.35) | 0 |
+  | 150k | 0.74 | 2 |
+  | 100k | 0.32 | 5 |
+  | 70k | 0.28 | 11 |
+
+  - 3b. Mean cost is ordered `auto` > 150k > 100k > 70k, and each arm's mean is within ±25% of the table.
+  - 3c. The 70k arm costs at least 70% less than `auto`. Under flat prices the same replay puts all four arms within $0.24–0.33, so the tier is the whole effect.
+- Prediction 4 (fidelity within ±3%) now uses the tiered rates.
+- The dose-response question, its analysis and the $60 cap are unchanged. Runs cost about $1.35 at most, so the batch should end near $15.
 
 ## Design: high-growth real sessions (written 2026-10-28, before the runs)
 
