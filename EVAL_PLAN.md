@@ -165,6 +165,52 @@ Code: `sim.HorizonGated`, `sim.ClosedFormRecent`, `sim.empirical_residual` (test
 - **Silent loss applies:** ρ ≤ 0.2 while two of 24 compacted runs dropped to 4–5 recall (h7 at 150k, h6 at 100k). P is therefore not bounded by re-read cost, and the paper says so.
 - **Noise:** recall was bimodal (28 runs at 12–20, two at 4–5), not the SD 3.5 assumed. The primary CI resamples only two orderings; the pooled CI is the more reliable.
 
+## Design: second-model replication (written 2026-11-18, before any run; not yet approved)
+
+**Why.** Every real run so far used Sonnet 5.5. The claim most likely to be model-specific is the dose-response null: a weaker model could lose more per compaction. The cost model's fidelity is the second.
+
+**Model: Haiku 5.5** on the same harness (`claude -p --model haiku`).
+- It is the weakest current tier, so it is the hardest case for "extra compactions cost no recall".
+- It is priced below Sonnet, so the same budget buys more runs than Opus would (Opus is about 2x Sonnet per run).
+- Not addressed: a second vendor. No other agent CLI with its own compaction is set up, so that needs a new driver and is out of scope here.
+
+**Code before any run (no spend).**
+- `run_pilot.py`: read the model from `PILOT_MODEL` (default `sonnet`); record the model id and context window from the `result` event in each ledger row.
+- `dose.py`: take the ledger directory as an argument, so `results/model2/` is analysed alone.
+- The online (`eoq`) arm is dropped: its controller uses Sonnet prices and it tracked the 150k arm within one compaction.
+
+**Step 1: calibration gate (one run, h1 `auto`, at most $4).** Read off, not assume:
+- the billed rate for input, cache write, cache read and output (from usage counters against `costUSD`);
+- the context window and where `auto` fires;
+- bugs fixed and peak context.
+
+Stop and report instead of continuing if any of these holds:
+- fewer than 15 of 20 bugs fixed (the task is too hard for the model, so recall would measure something else);
+- peak context under 150k (the arms would not separate);
+- the window is under 200k (the 150k arm cannot be set).
+
+**Step 2: main batch.** Orderings h1, h2, h6, h7 under `auto`, 150k, 100k and 70k: 16 runs.
+- All in one batch, each ordering's four arms back to back, two runs in parallel. This removes the run-date confound of the Sonnet experiment.
+- A stalled run is re-run the same day; if that fails, its ordering is dropped whole.
+
+**Analysis (unchanged from the Sonnet experiment).** Exact-expression recall (/20) on realized compactions with an ordering fixed effect; within-ordering permutation p; ordering-cluster bootstrap 95% CI. Fidelity: each run's bill predicted from its realized growth and compaction schedule, with the structural terms measured on Sonnet (11k kept, 5.2k summary output, 8.6k prefix evicted) and Haiku's billed rates.
+
+**Pre-registered predictions.**
+1. Slope between −0.5 and +0.3 facts per compaction, and the 95% CI excludes −1.3.
+2. No cliff: mean recall at 70k is within 3 facts of `auto`.
+3. Cost is ordered 70k > 100k > 150k.
+4. Fidelity: the aggregate predicted bill is within ±3% of the realized one.
+5. At most 3 of the 12 compacted runs recall 5 or fewer (Sonnet: 2 of 24).
+
+**Decision rule (fixed now).**
+- Upper bound on P (pessimistic CI bound x 25k tokens) under 180k: the paper states the null for two models.
+- CI entirely below zero: the paper reports the effect as model-dependent, with both slopes, and `recommend` gains a warning for small models.
+- Prediction 4 fails: report which measured term moved, and do not claim the cost model transfers unchanged.
+
+**Budget.** Cap $60 on a new ledger, `results/model2/ledger.jsonl`: 17 runs at the Sonnet per-run maximum of $3.50, as an upper bound. The driver refuses to start a run that could pass the cap.
+
+**Power.** The Sonnet pooled slope had SE about 0.18 on 30 runs. With 16 runs over the same 0–8 compaction range, SE is about 0.25, so a true slope near zero excludes −1.3 by about 5 SE.
+
 ## Design: high-growth real sessions (written 2026-10-28, before the runs)
 
 Sizing: `experiments/size_highgrowth.py` → `results/highgrowth_sizing.json`. It replays the pilot's real per-call increments rescaled to the target growth, on the fidelity-checked simulator (7.9% MAE) with the pilot's bias corrected.
